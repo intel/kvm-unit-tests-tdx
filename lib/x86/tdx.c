@@ -311,6 +311,18 @@ static bool tdx_get_ve_info(struct ve_info *ve)
 	return true;
 }
 
+static bool tdx_is_bypassed_msr(u32 index)
+{
+	switch (index) {
+	case MSR_IA32_TSC:
+	case MSR_IA32_APICBASE:
+	case MSR_EFER:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static bool tdx_handle_virtualization_exception(struct ex_regs *regs,
 		struct ve_info *ve)
 {
@@ -338,7 +350,8 @@ static bool tdx_handle_virtualization_exception(struct ex_regs *regs,
 		}
 		break;
 	case EXIT_REASON_MSR_WRITE:
-		ret = tdx_write_msr(regs->rcx, regs->rax, regs->rdx);
+		if (!tdx_is_bypassed_msr(regs->rcx))
+			ret = tdx_write_msr(regs->rcx, regs->rax, regs->rdx);
 		break;
 	case EXIT_REASON_CPUID:
 		ret = tdx_handle_cpuid(regs);
