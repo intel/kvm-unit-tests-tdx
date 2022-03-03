@@ -144,8 +144,23 @@ static int read_msr(struct ex_regs *regs, struct ve_info *ve)
 	return ve_instr_len(ve);
 }
 
+static bool tdx_is_bypassed_msr(u32 index)
+{
+	switch (index) {
+	case MSR_IA32_TSC:
+	case MSR_IA32_APICBASE:
+	case MSR_EFER:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static int write_msr(struct ex_regs *regs, struct ve_info *ve)
 {
+	if (tdx_is_bypassed_msr(regs->rcx))
+		goto finish_wrmsr;
+
 	struct tdx_module_args args = {
 		.r10 = TDX_HYPERCALL_STANDARD,
 		.r11 = hcall_func(EXIT_REASON_MSR_WRITE),
@@ -161,6 +176,7 @@ static int write_msr(struct ex_regs *regs, struct ve_info *ve)
 	if (__tdx_hypercall(&args))
 		return -EIO;
 
+finish_wrmsr:
 	return ve_instr_len(ve);
 }
 
