@@ -35,6 +35,52 @@ ptl4:
 .code64
 .text
 
+.macro load_absolute_addr64, addr, reg
+	call 1f
+1:
+	popq \reg
+	addq \addr - 1b, \reg
+.endm
+
+MSR_GS_BASE = 0xc0000101
+
+.macro setup_percpu_area_64
+	lea -4096(%rsp), %rax
+	movq $0, %rdx
+	movq $MSR_GS_BASE, %rcx
+	wrmsr
+.endm
+
+.macro prepare_td
+	load_absolute_addr64 $gdt_descr, %rdx
+	lgdt (%rdx)
+
+	movq $MSR_GS_BASE, %rcx
+	rdmsr
+
+	/* Update data segments */
+	mov $0x10, %bx
+	mov %bx, %ds
+	mov %bx, %es
+	mov %bx, %fs
+	mov %bx, %gs
+	mov %bx, %ss
+
+	/* restore MSR_GS_BASE */
+	wrmsr
+.endm
+
+.globl tdx_ap_start64
+tdx_ap_start64:
+	movq $-PAGE_SIZE, %rsp
+	lock xadd %rsp, smp_stacktop(%rip)
+	setup_percpu_area_64
+	prepare_td
+	load_absolute_addr64 $ap_start64, %rdx
+	pushq $0x08
+	pushq %rdx
+	lretq
+
 .code16
 REALMODE_GDT_LOWMEM = PAGE_SIZE - 2
 
