@@ -6,6 +6,7 @@
 #include "libcflat.h"
 #include "atomic.h"
 #include "apic-defs.h"
+#include "efi.h"
 
 /* Address where to store the address of realmode GDT descriptor. */
 #define REALMODE_GDT_LOWMEM (PAGE_SIZE - 2)
@@ -86,6 +87,7 @@ void on_cpus(void (*function)(void *data), void *data);
 void smp_reset_apic(void);
 void bringup_aps(void);
 void ap_online(void);
+efi_status_t bringup_aps_acpi(unsigned long start_ip);
 
 extern atomic_t cpu_online_count;
 extern unsigned char online_cpus[(MAX_TEST_CPUS + 7) / 8];

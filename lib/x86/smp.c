@@ -11,6 +11,7 @@
 #include "desc.h"
 #include "alloc_page.h"
 #include "asm/page.h"
+#include "acpi.h"
 
 #define IPI_VECTOR 0x20
 
@@ -287,4 +288,29 @@ void bringup_aps(void)
 	printf("smp: waiting for %d APs\n", _cpu_count - 1);
 	while (_cpu_count != atomic_read(&cpu_online_count))
 		cpu_relax();
+}
+
+/* wakeup APs by sending the OS commands to ACPI mailbox. */
+efi_status_t bringup_aps_acpi(unsigned long start_ip)
+{
+	u32 i;
+	_cpu_count = fwcfg_get_nb_cpus();
+
+	/* BSP is already online */
+	set_bit(id_map[0], online_cpus);
+
+#ifdef CONFIG_EFI
+	smp_stacktop = ((u64) (&stacktop)) - PAGE_SIZE;
+#endif
+
+	for (i = 1; i < _cpu_count; i++) {
+		if (acpi_wakeup_cpu(id_map[i], start_ip, online_cpus))
+			return EFI_DEVICE_ERROR;
+		set_bit(id_map[i], online_cpus);
+	}
+
+	while (atomic_read(&cpu_online_count) != _cpu_count)
+		cpu_relax();
+
+	return EFI_SUCCESS;
 }
