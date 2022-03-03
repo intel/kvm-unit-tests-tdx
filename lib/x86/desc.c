@@ -100,13 +100,6 @@ void set_idt_sel(int vec, u16 sel)
 	e->selector = sel;
 }
 
-struct ex_record {
-	unsigned long rip;
-	unsigned long handler;
-};
-
-extern struct ex_record exception_table_start, exception_table_end;
-
 const char* exception_mnemonic(int vector)
 {
 	switch(vector) {

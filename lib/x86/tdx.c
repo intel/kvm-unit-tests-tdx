@@ -305,6 +305,22 @@ done:
 	return !!tdx_guest;
 }
 
+static bool tdx_check_exception_table(struct ex_regs *regs)
+{
+	struct ex_record *ex;
+
+	for (ex = &exception_table_start; ex != &exception_table_end; ++ex) {
+		if (ex->rip == regs->rip) {
+			regs->rip = ex->handler;
+			return true;
+		}
+	}
+	unhandled_exception(regs, false);
+
+	/* never reached */
+	return false;
+}
+
 static bool tdx_get_ve_info(struct ve_info *ve)
 {
 	struct tdx_module_args args = {};
@@ -336,7 +352,12 @@ static bool tdx_get_ve_info(struct ve_info *ve)
 static bool tdx_handle_virt_exception(struct ex_regs *regs,
 		struct ve_info *ve)
 {
+	unsigned int ex_val;
 	int insn_len = -EIO;
+
+	/* #VE exit_reason in bit16-32 */
+	ex_val = regs->vector | (ve->exit_reason << 16);
+	asm("mov %0, %%gs:4" : : "r"(ex_val));
 
 	switch (ve->exit_reason) {
 	case EXIT_REASON_HLT:
@@ -362,7 +383,7 @@ static bool tdx_handle_virt_exception(struct ex_regs *regs,
 		return false;
 	}
 	if (insn_len < 0)
-		return false;
+		return tdx_check_exception_table(regs);
 
 	/* After successful #VE handling, move the IP */
 	regs->rip += insn_len;
