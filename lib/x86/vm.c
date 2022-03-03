@@ -5,6 +5,7 @@
 #include "smp.h"
 
 static pteval_t pte_opt_mask;
+static int page_level;
 
 pteval_t *install_pte(pgd_t *cr3,
 		      int pte_level,
@@ -16,7 +17,7 @@ pteval_t *install_pte(pgd_t *cr3,
     pteval_t *pt = cr3;
     unsigned offset;
 
-    for (level = PAGE_LEVEL; level > pte_level; --level) {
+    for (level = page_level; level > pte_level; --level) {
 	offset = PGDIR_OFFSET((uintptr_t)virt, level);
 	if (!(pt[offset] & PT_PRESENT_MASK)) {
 	    pteval_t *new_pt = pt_page;
@@ -49,9 +50,9 @@ struct pte_search find_pte_level(pgd_t *cr3, void *virt,
 	unsigned shift;
 	struct pte_search r;
 
-	assert(lowest_level >= 1 && lowest_level <= PAGE_LEVEL);
+	assert(lowest_level >= 1 && lowest_level <= page_level);
 
-	for (r.level = PAGE_LEVEL;; --r.level) {
+	for (r.level = page_level;; --r.level) {
 		shift = (r.level - 1) * PGDIR_WIDTH + 12;
 		offset = ((uintptr_t)virt >> shift) & PGDIR_MASK;
 		r.pte = &pt[offset];
@@ -187,11 +188,13 @@ void *setup_mmu(phys_addr_t end_of_memory, void *opt_mask)
     memset(cr3, 0, PAGE_SIZE);
 
 #ifdef __x86_64__
+    page_level = (read_cr4() & X86_CR4_LA57) ? PAGE_LEVEL_5 : PAGE_LEVEL_4;
     if (end_of_memory < (1ul << 32))
         end_of_memory = (1ul << 32);  /* map mmio 1:1 */
 
     setup_mmu_range(cr3, 0, end_of_memory);
 #else
+    page_level = PAGE_LEVEL;
     setup_mmu_range(cr3, 0, (2ul << 30));
     setup_mmu_range(cr3, 3ul << 30, (1ul << 30));
     init_alloc_vpage((void*)(3ul << 30));
@@ -201,7 +204,7 @@ void *setup_mmu(phys_addr_t end_of_memory, void *opt_mask)
 #ifndef __x86_64__
     write_cr4(X86_CR4_PSE);
 #endif
-    write_cr0(X86_CR0_PG |X86_CR0_PE | X86_CR0_WP);
+    write_cr0(X86_CR0_PG | X86_CR0_PE | X86_CR0_WP);
 
     printf("paging enabled\n");
     printf("cr0 = %lx\n", read_cr0());

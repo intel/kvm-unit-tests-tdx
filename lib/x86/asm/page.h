@@ -66,7 +66,8 @@ extern unsigned long long get_amd_sev_addr_upperbound(void);
 
 
 #ifdef __x86_64__
-#define	PAGE_LEVEL	4
+#define	PAGE_LEVEL_5	5
+#define	PAGE_LEVEL_4	4
 #define	PDPT_LEVEL	3
 #define	PGDIR_WIDTH	9
 #define	PGDIR_MASK	511
