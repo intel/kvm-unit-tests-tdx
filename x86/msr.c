@@ -6,6 +6,7 @@
 #include "msr.h"
 #include <x86/tdx.h>
 #include <stdlib.h>
+#include "tdx.h"
 
 /*
  * This test allows two modes:
@@ -180,6 +181,7 @@ static void test_custom_msr(int ac, char **av)
 	bool is_64bit_host = this_cpu_has(X86_FEATURE_LM);
 	char msr_name[32];
 	int index = strtoul(av[1], NULL, 0x10);
+
 	snprintf(msr_name, sizeof(msr_name), "MSR:0x%x", index);
 
 	struct msr_info msr = {
@@ -298,6 +300,22 @@ static void test_mce_msrs(void)
 	}
 }
 
+static enum x2apic_reg_semantics
+x2apic_reg_semantics_override(u32 reg, enum x2apic_reg_semantics semantics)
+{
+	if (is_tdx_guest()) {
+		switch (reg) {
+		case APIC_ARBPRI:
+		case APIC_EOI:
+		case APIC_RRR:
+		case APIC_DFR:
+		case APIC_SELF_IPI:
+			semantics |= X2APIC_RO;
+		}
+	}
+	return semantics;
+}
+
 static void __test_x2apic_msrs(bool x2apic_enabled)
 {
 	enum x2apic_reg_semantics semantics;
@@ -308,9 +326,10 @@ static void __test_x2apic_msrs(bool x2apic_enabled)
 		index = x2apic_msr(i);
 		snprintf(msr_name, sizeof(msr_name), "x2APIC MSR 0x%x", index);
 
-		if (x2apic_enabled)
+		if (x2apic_enabled) {
 			semantics = get_x2apic_reg_semantics(i);
-		else
+			semantics = x2apic_reg_semantics_override(i, semantics);
+		} else
 			semantics = X2APIC_INVALID;
 
 		if (!(semantics & X2APIC_WRITABLE))
@@ -345,8 +364,10 @@ static void __test_x2apic_msrs(bool x2apic_enabled)
 
 static void test_x2apic_msrs(void)
 {
-	reset_apic();
+	if (is_tdx_guest())
+		return __test_x2apic_msrs(true);
 
+	reset_apic();
 	__test_x2apic_msrs(false);
 
 	if (!enable_x2apic())
