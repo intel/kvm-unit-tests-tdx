@@ -27,6 +27,8 @@ ifeq ($(CONFIG_EFI),y)
 cflatobjs += lib/x86/amd_sev.o
 cflatobjs += lib/efi.o
 cflatobjs += x86/efi/reloc_x86_64.o
+cflatobjs += lib/x86/tdcall.o
+cflatobjs += lib/x86/tdx.o
 endif
 
 OBJDIRS += lib/x86
