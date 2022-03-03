@@ -212,6 +212,12 @@ extern tss64_t tss[];
 #endif
 extern gdt_entry_t gdt[];
 
+struct ex_record {
+	unsigned long rip;
+	unsigned long handler;
+};
+extern struct ex_record exception_table_start, exception_table_end;
+
 unsigned exception_vector(void);
 int write_cr4_checking(unsigned long val);
 unsigned exception_error_code(void);
