@@ -30,7 +30,12 @@
 #define EXIT_REASON_MSR_WRITE           32
 
 /* TDX Module call Leaf IDs */
+#define TDX_GET_INFO			1
 #define TDX_GET_VEINFO			3
+#define TDX_ACCEPT_PAGE			6
+
+/* TDX hypercall Leaf IDs */
+#define TDVMCALL_MAP_GPA		0x10001
 
 /*
  * Used in __tdx_module_call() helper function to gather the
@@ -76,8 +81,21 @@ struct ve_info {
 	u32 instr_info;
 };
 
+/*
+ * Page mapping type enum. This is software construct not
+ * part of any hardware or VMM ABI.
+ */
+enum tdx_map_type {
+	TDX_MAP_PRIVATE,
+	TDX_MAP_SHARED,
+};
+
 bool is_tdx_guest(void);
-efi_status_t setup_tdx(void);
+phys_addr_t tdx_shared_mask(void);
+int tdx_hcall_gpa_intent(phys_addr_t start, phys_addr_t end,
+			 enum tdx_map_type map_type);
+bool tdx_accept_memory(phys_addr_t start, phys_addr_t end);
+efi_status_t setup_tdx(efi_bootinfo_t *efi_bootinfo);
 
 /* Helper function used to communicate with the TDX module */
 u64 __tdx_module_call(u64 fn, u64 rcx, u64 rdx, u64 r8, u64 r9,
