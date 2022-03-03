@@ -15,6 +15,7 @@ unsigned long setup_tss(u8 *stacktop);
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo);
 void setup_5level_page_table(void);
 #endif /* CONFIG_EFI */
+#include "x86/tdx.h"
 
 void save_id(void);
 void bsp_rest_init(void);
