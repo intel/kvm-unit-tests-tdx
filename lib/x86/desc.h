@@ -246,6 +246,10 @@ extern struct ex_record exception_table_start, exception_table_end;
 unsigned exception_vector(void);
 unsigned exception_error_code(void);
 bool exception_rflags_rf(void);
+#ifndef __x86_64__
+__attribute__((regparm(1)))
+#endif
+void do_handle_exception(struct ex_regs *regs);
 void set_desc_entry(idt_entry_t *e, size_t e_sz, void *addr,
 		    u16 sel, u16 type, u16 dpl);
 void set_idt_entry(int vec, void *addr, int dpl);
