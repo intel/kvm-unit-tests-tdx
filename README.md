@@ -137,6 +137,12 @@ when the user does not provide an environ, then an environ generated
 from the ./errata.txt file and the host's kernel version is provided to
 all unit tests.
 
+# Unit test in TDX environment
+
+    All the test cases supported by TDX belong to 'tdx' group, by this
+    command: "EFI_TDX=y ./run_tests.sh -g tdx", all these test cases run
+    in a TDX protected environment.
+
 # Contributing
 
 ## Directory structure
