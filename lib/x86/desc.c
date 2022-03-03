@@ -249,6 +249,7 @@ EX(mf, 16);
 EX_E(ac, 17);
 EX(mc, 18);
 EX(xm, 19);
+EX(ve, 20);
 EX_E(cp, 21);
 
 asm (".pushsection .text \n\t"
@@ -295,6 +296,7 @@ static void *idt_handlers[32] = {
 	[17] = &ac_fault,
 	[18] = &mc_fault,
 	[19] = &xm_fault,
+	[20] = &ve_fault,
 	[21] = &cp_fault,
 };
 
@@ -312,7 +314,9 @@ void setup_idt(void)
 			continue;
 
                 set_idt_entry(i, idt_handlers[i], 0);
-                handle_exception(i, check_exception_table);
+
+		if (!exception_handlers[i])
+			handle_exception(i, check_exception_table);
 	}
 }
 
