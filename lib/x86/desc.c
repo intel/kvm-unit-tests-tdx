@@ -51,11 +51,6 @@ struct descriptor_table_ptr gdt_descr = {
 	.base = (unsigned long)gdt,
 };
 
-#ifndef __x86_64__
-__attribute__((regparm(1)))
-#endif
-void do_handle_exception(struct ex_regs *regs);
-
 void set_idt_entry(int vec, void *addr, int dpl)
 {
     idt_entry_t *e = &boot_idt[vec];

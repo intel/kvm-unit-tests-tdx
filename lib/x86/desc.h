@@ -222,6 +222,10 @@ unsigned exception_vector(void);
 int write_cr4_checking(unsigned long val);
 unsigned exception_error_code(void);
 bool exception_rflags_rf(void);
+#ifndef __x86_64__
+__attribute__((regparm(1)))
+#endif
+void do_handle_exception(struct ex_regs *regs);
 void set_idt_entry(int vec, void *addr, int dpl);
 void set_idt_sel(int vec, u16 sel);
 void set_idt_dpl(int vec, u16 dpl);

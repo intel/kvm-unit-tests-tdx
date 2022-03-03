@@ -365,8 +365,15 @@ static bool tdx_handle_virtualization_exception(struct ex_regs *regs,
 	}
 
 	/* After successful #VE handling, move the IP */
-	if (ret)
+	if (ret) {
 		regs->rip += ve->instr_len;
+		/* Simulate single step on simulated instruction */
+		if (regs->rflags & X86_EFLAGS_TF) {
+			regs->vector = DB_VECTOR;
+			write_dr6(read_dr6() | (1 << 14));
+			do_handle_exception(regs);
+		}
+	}
 	else
 		ret = tdx_check_exception_table(regs);
 
