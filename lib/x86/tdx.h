@@ -25,6 +25,7 @@
 
 /* TDX module Call Leaf IDs */
 #define TDG_VP_VMCALL			0
+#define TDG_VP_VEINFO_GET		3
 
 /*
  * Bitmasks of exposed registers (with VMM).
@@ -123,6 +124,21 @@ static __always_inline u64 hcall_func(u64 exit_reason)
         return exit_reason;
 }
 
+/*
+ * Used by the #VE exception handler to gather the #VE exception
+ * info from the TDX module. This is a software only structure
+ * and not part of the TDX module/VMM ABI.
+ */
+struct ve_info {
+	u64 exit_reason;
+	u64 exit_qual;
+	/* Guest Linear (virtual) Address */
+	u64 gla;
+	/* Guest Physical Address */
+	u64 gpa;
+	u32 instr_len;
+	u32 instr_info;
+};
 
 bool is_tdx_guest(void);
 efi_status_t setup_tdx(void);
