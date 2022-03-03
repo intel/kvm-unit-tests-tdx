@@ -283,6 +283,16 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	efi_status_t status;
 	const char *phase;
 
+	/*
+	 * TDVF support partial memory accept, accept remaining memory
+	 * early so memory allocator can use it.
+	 */
+	status = setup_tdx();
+	if (status != EFI_SUCCESS && status != EFI_UNSUPPORTED) {
+		printf("INTEL TDX setup failed, error = 0x%lx\n", status);
+		return status;
+	}
+
 	status = setup_memory_allocator(efi_bootinfo);
 	if (status != EFI_SUCCESS) {
 		printf("Failed to set up memory allocator: ");
