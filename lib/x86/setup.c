@@ -339,6 +339,10 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 		return status;
 	}
 
+	/* Parse all acpi tables, currently only MADT table */
+	if (!parse_acpi_table(id_map))
+		return EFI_NOT_FOUND;
+
 	phase = "AMD SEV";
 	status = setup_amd_sev();
 
