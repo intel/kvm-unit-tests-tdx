@@ -31,6 +31,11 @@ ptl4:
 	. = . + PAGE_SIZE
 .align PAGE_SIZE
 
+.globl ptl5
+ptl5:
+	. = . + PAGE_SIZE
+.align PAGE_SIZE
+
 .globl stacktop
 	. = . + PAGE_SIZE * MAX_TEST_CPUS
 stacktop:
