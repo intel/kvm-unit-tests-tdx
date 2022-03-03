@@ -59,6 +59,7 @@ typedef guid_t efi_guid_t;
 	(c) & 0xff, ((c) >> 8) & 0xff, d } }
 
 #define ACPI_TABLE_GUID EFI_GUID(0xeb9d2d30, 0x2d88, 0x11d3, 0x9a, 0x16, 0x00, 0x90, 0x27, 0x3f, 0xc1, 0x4d)
+#define LOADED_IMAGE_PROTOCOL_GUID EFI_GUID(0x5b1b31a1, 0x9562, 0x11d2,  0x8e, 0x3f, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b)
 
 typedef struct {
 	efi_guid_t guid;
@@ -416,6 +417,23 @@ struct efi_boot_memmap {
 	unsigned long           *key_ptr;
 	unsigned long           *buff_size;
 };
+
+#define __aligned_u64 u64 __attribute__((aligned(8)))
+typedef struct {
+	u32			revision;
+	efi_handle_t		parent_handle;
+	efi_system_table_t	*system_table;
+	efi_handle_t		device_handle;
+	void			*file_path;
+	void			*reserved;
+	u32			load_options_size;
+	void			*load_options;
+	void			*image_base;
+	__aligned_u64		image_size;
+	unsigned int		image_code_type;
+	unsigned int		image_data_type;
+	efi_status_t		(__efiapi *unload)(efi_handle_t image_handle);
+} efi_loaded_image_t;
 
 /*
  * efi_memdesc_ptr - get the n-th EFI memmap descriptor
