@@ -403,6 +403,12 @@ static bool tdx_handle_virt_exception(struct ex_regs *regs,
 
 	/* After successful #VE handling, move the IP */
 	regs->rip += insn_len;
+	/* Simulate single step on simulated instruction */
+	if (regs->rflags & X86_EFLAGS_TF) {
+		regs->vector = DB_VECTOR;
+		write_dr6(read_dr6() | (1 << 14));
+		do_handle_exception(regs);
+	}
 
 	return true;
 }
