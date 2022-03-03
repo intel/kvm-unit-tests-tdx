@@ -1,5 +1,8 @@
 #include "libcflat.h"
 #include "acpi.h"
+#include "asm/barrier.h"
+
+static struct acpi_madt_multiproc_wakeup_mailbox *acpi_mp_wake_mailbox;
 
 #ifdef CONFIG_EFI
 struct acpi_table_rsdp *efi_rsdp = NULL;
@@ -126,4 +129,19 @@ int acpi_table_parse_madt(enum acpi_madt_type mtype, acpi_table_handler handler)
 	}
 
 	return count;
+}
+
+int acpi_parse_madt_mp_wakeup(struct acpi_subtable_header *sub_table)
+{
+	struct acpi_madt_multiproc_wakeup *mp_wakeup = (void *)sub_table;
+
+	if (acpi_mp_wake_mailbox)
+		printf("WARN: duplicate mailbox, prev: 0x%p\n",
+		       acpi_mp_wake_mailbox);
+
+	acpi_mp_wake_mailbox = (void *)(unsigned long)mp_wakeup->base_address;
+	printf("MP Wake (Mailbox version[%d] base_address[%"PRIx64"])\n",
+	       mp_wakeup->mailbox_version, mp_wakeup->base_address);
+
+	return 0;
 }

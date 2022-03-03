@@ -304,6 +304,62 @@ static void setup_page_table(void)
 	write_cr3((ulong)&ptl4);
 }
 
+static int parse_acpi_madt_xapic(struct acpi_subtable_header *sub_table)
+{
+	struct acpi_madt_local_apic *processor = (void *)sub_table;
+	u32 uid, apic_id;
+	u8 enabled;
+
+	uid = processor->processor_id;
+	apic_id = processor->id;
+	enabled = processor->lapic_flags & ACPI_MADT_ENABLED;
+
+	/* Ignore invalid ID */
+	if (apic_id == 0xff)
+		return -1;
+	if (!enabled)
+		return -1;
+
+	id_map[uid] = apic_id;
+	printf("apicid %x uid %x %s\n", apic_id, uid,
+	       enabled ? "enabled" : "disabled");
+	return 0;
+}
+
+static int parse_acpi_madt_x2apic(struct acpi_subtable_header* sub_table)
+{
+	struct acpi_madt_local_x2apic *processor2 = (void *)sub_table;
+	u32 uid, apic_id;
+	u8 enabled;
+
+	uid = processor2->uid;
+	apic_id = processor2->local_apic_id;
+	enabled = processor2->lapic_flags & ACPI_MADT_ENABLED;
+
+	/* Ignore invalid ID */
+	if (apic_id == 0xffffffff)
+		return -1;
+	if (!enabled)
+		return -1;
+
+	id_map[uid] = apic_id;
+	printf("x2apicid %x uid %x %s\n", apic_id, uid,
+	       enabled ? "enabled" : "disabled");
+	return 0;
+}
+
+static efi_status_t efi_parse_acpi_madt(void)
+{
+	acpi_table_parse_madt(ACPI_MADT_TYPE_LOCAL_APIC,
+			      parse_acpi_madt_xapic);
+	acpi_table_parse_madt(ACPI_MADT_TYPE_LOCAL_X2APIC,
+			      parse_acpi_madt_x2apic);
+	acpi_table_parse_madt(ACPI_MADT_TYPE_MULTIPROC_WAKEUP,
+			     acpi_parse_madt_mp_wakeup);
+
+	return EFI_SUCCESS;
+}
+
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 {
 	efi_status_t status;
@@ -334,6 +390,11 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 		printf("Cannot find RSDP in EFI system table\n");
 		return status;
 	}
+
+	/* Parse all acpi tables, currently only MADT table */
+	status = efi_parse_acpi_madt();
+	if (status != EFI_SUCCESS)
+		return status;
 
 	phase = "AMD SEV";
 	status = setup_amd_sev();
