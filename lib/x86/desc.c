@@ -175,21 +175,27 @@ void unhandled_exception(struct ex_regs *regs, bool cpu)
 	abort();
 }
 
-static void check_exception_table(struct ex_regs *regs)
+bool check_exception_table(struct ex_regs *regs)
 {
 	struct ex_record *ex;
-
-	this_cpu_write_exception_vector(regs->vector);
-	this_cpu_write_exception_rflags_rf((regs->rflags >> 16) & 1);
-	this_cpu_write_exception_error_code(regs->error_code);
 
 	for (ex = &exception_table_start; ex != &exception_table_end; ++ex) {
 		if (ex->rip == regs->rip) {
 			regs->rip = ex->handler;
-			return;
+			return true;
 		}
 	}
 	unhandled_exception(regs, false);
+	return false;
+}
+
+static void default_exception_handler(struct ex_regs *regs)
+{
+	this_cpu_write_exception_vector(regs->vector);
+	this_cpu_write_exception_rflags_rf(!!(regs->rflags & X86_EFLAGS_RF));
+	this_cpu_write_exception_error_code(regs->error_code);
+
+	check_exception_table(regs);
 }
 
 static handler exception_handlers[32];
@@ -316,7 +322,7 @@ void setup_idt(void)
 
 		if (exception_handlers[i])
 			continue;
-		handle_exception(i, check_exception_table);
+		handle_exception(i, default_exception_handler);
 	}
 }
 

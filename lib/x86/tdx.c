@@ -397,7 +397,7 @@ static bool tdx_handle_virt_exception(struct ex_regs *regs,
 	}
 
 	if (insn_len < 0)
-		return false;
+		return check_exception_table(regs);
 
 	/* After successful #VE handling, move the IP */
 	regs->rip += insn_len;
