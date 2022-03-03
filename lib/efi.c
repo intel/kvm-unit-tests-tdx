@@ -101,8 +101,13 @@ static void efi_exit(efi_status_t code)
 	efi_rs_call(reset_system, EFI_RESET_SHUTDOWN, code, 0, NULL);
 }
 
-/* Adapted from drivers/firmware/efi/libstub/efi-stub.c */
-static char *efi_convert_cmdline(struct efi_loaded_image_64 *image, int *cmd_line_len)
+/* Adapted from drivers/firmware/efi/libstub/efi-stub.c
+ *
+ * Convert the unicode UEFI command line to ASCII, only support ascii < 0x80.
+ * Size of memory allocated return in *cmd_line_len.
+ */
+static efi_status_t efi_convert_cmdline(struct efi_loaded_image_64 *image,
+					char **cmd_line_ptr, int *cmd_line_len)
 {
 	const u16 *s2;
 	unsigned long cmdline_addr = 0;
@@ -167,12 +172,13 @@ static char *efi_convert_cmdline(struct efi_loaded_image_64 *image, int *cmd_lin
 
 	status = efi_bs_call(allocate_pool, EFI_LOADER_DATA, options_bytes, (void **)&cmdline_addr);
 	if (status != EFI_SUCCESS)
-		return NULL;
+		return status;
 
 	snprintf((char *)cmdline_addr, options_bytes, "%.*ls", options_bytes - 1, options);
 
+	*cmd_line_ptr = (char *)cmdline_addr;
 	*cmd_line_len = options_bytes;
-	return (char *)cmdline_addr;
+	return EFI_SUCCESS;
 }
 
 /*
@@ -297,6 +303,31 @@ static void *efi_get_fdt(efi_handle_t handle, struct efi_loaded_image_64 *image)
 	return fdt;
 }
 
+static efi_status_t setup_efi_args(efi_handle_t handle)
+{
+	efi_guid_t proto = LOADED_IMAGE_PROTOCOL_GUID;
+	struct efi_loaded_image_64 *image = NULL;
+	char *cmdline_ptr;
+	int options_size = 0;
+	efi_status_t status;
+
+	status = efi_bs_call(handle_protocol, handle, &proto, (void **)&image);
+	if (status != EFI_SUCCESS) {
+		printf("Failed to get handle for LOADED_IMAGE_PROTOCOL\n");
+		return status;
+	}
+
+	status = efi_convert_cmdline(image, &cmdline_ptr, &options_size);
+
+	if (status != EFI_SUCCESS && status != EFI_NOT_FOUND)
+		return status;
+
+	if (status == EFI_SUCCESS)
+		setup_args(cmdline_ptr);
+
+	return EFI_SUCCESS;
+}
+
 efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 {
 	int ret;
@@ -304,6 +335,12 @@ efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 	efi_bootinfo_t efi_bootinfo;
 
 	efi_system_table = sys_tab;
+
+	status = setup_efi_args(handle);
+	if (status != EFI_SUCCESS) {
+		printf("Failed to get efi parameters\n");
+		goto efi_main_error;
+	}
 
 	/* Memory map struct values */
 	efi_memory_desc_t *map = NULL;
@@ -327,7 +364,7 @@ efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 		goto efi_main_error;
 	}
 
-	cmdline_ptr = efi_convert_cmdline(image, &cmdline_size);
+	efi_convert_cmdline(image, &cmdline_ptr, &cmdline_size);
 	if (!cmdline_ptr) {
 		printf("getting command line via LOADED_IMAGE_PROTOCOL\n");
 		status = EFI_OUT_OF_RESOURCES;
