@@ -10,6 +10,7 @@
 #define RSDT_SIGNATURE ACPI_SIGNATURE('R','S','D','T')
 #define FACP_SIGNATURE ACPI_SIGNATURE('F','A','C','P')
 #define FACS_SIGNATURE ACPI_SIGNATURE('F','A','C','S')
+#define MADT_SIGNATURE ACPI_SIGNATURE('A','P','I','C')
 
 
 #define ACPI_SIGNATURE_8BYTE(c1, c2, c3, c4, c5, c6, c7, c8) \
@@ -45,6 +46,88 @@ struct acpi_table {
     ACPI_TABLE_HEADER_DEF
     char data[0];
 };
+
+/*******************************************************************************
+ *
+ * MADT - Multiple APIC Description Table
+ *        Version 3
+ *
+ ******************************************************************************/
+
+struct acpi_table_madt {
+	ACPI_TABLE_HEADER_DEF
+	u32 address;            /* Physical address of local APIC */
+	u32 flags;
+};
+
+/* Generic subtable header (used in MADT, SRAT, etc.) */
+
+struct acpi_subtable_header {
+	u8 type;
+	u8 length;
+};
+
+#define ACPI_MADT_TYPE_LOCAL_APIC	0
+#define ACPI_MADT_TYPE_LOCAL_X2APIC	9
+#define ACPI_MADT_TYPE_MULTIPROC_WAKEUP	16
+
+#define BAD_MADT_ENTRY(entry, end) (                                        \
+		(!entry) || (unsigned long)entry + sizeof(*entry) > end ||  \
+		((struct acpi_subtable_header *)entry)->length < sizeof(*entry))
+
+/*
+ * MADT Subtables, correspond to Type in struct acpi_subtable_header
+ */
+
+/* 0: Processor Local APIC */
+
+struct acpi_madt_local_apic {
+	struct acpi_subtable_header header;
+	u8 processor_id;        /* ACPI processor id */
+	u8 id;                  /* Processor's local APIC id */
+	u32 lapic_flags;
+};
+
+/* 9: Processor Local X2APIC (ACPI 4.0) */
+
+struct acpi_madt_local_x2apic {
+	struct acpi_subtable_header header;
+	u16 reserved;           /* reserved - must be zero */
+	u32 local_apic_id;      /* Processor x2APIC ID  */
+	u32 lapic_flags;
+	u32 uid;                /* ACPI processor UID */
+};
+
+/* 16: Multiprocessor wakeup (ACPI 6.4) */
+
+struct acpi_madt_multiproc_wakeup {
+	struct acpi_subtable_header header;
+	u16 mailbox_version;
+	u32 reserved;		/* reserved - must be zero */
+	u64 base_address;
+};
+
+#define ACPI_MULTIPROC_WAKEUP_MB_OS_SIZE        2032
+#define ACPI_MULTIPROC_WAKEUP_MB_FIRMWARE_SIZE  2048
+
+struct acpi_madt_multiproc_wakeup_mailbox {
+	u16 command;
+	u16 reserved;		/* reserved - must be zero */
+	u32 apic_id;
+	u64 wakeup_vector;
+	u8 reserved_os[ACPI_MULTIPROC_WAKEUP_MB_OS_SIZE];	/* reserved for OS use */
+	u8 reserved_firmware[ACPI_MULTIPROC_WAKEUP_MB_FIRMWARE_SIZE];	/* reserved for firmware use */
+};
+
+#define ACPI_MP_WAKE_COMMAND_WAKEUP	1
+
+/*
+ * Common flags fields for MADT subtables
+ */
+
+/* MADT Local APIC flags */
+
+#define ACPI_MADT_ENABLED		(1) /* 00: Processor is usable if set */
 
 struct rsdt_descriptor_rev1 {
     ACPI_TABLE_HEADER_DEF
@@ -108,5 +191,7 @@ struct facs_descriptor_rev1
 
 void set_efi_rsdp(struct rsdp_descriptor *rsdp);
 void* find_acpi_table_addr(u32 sig);
+int acpi_wakeup_cpu(int apicid, unsigned long start_ip);
+bool parse_acpi_table(void);
 
 #endif
