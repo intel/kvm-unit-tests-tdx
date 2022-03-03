@@ -108,8 +108,9 @@ unsigned long setup_tss(u8 *stacktop)
 {
 	u32 id;
 	tss64_t *tss_entry;
+	static u32 cpus = 0;
 
-	id = apic_id();
+	id = is_tdx_guest() ? id_map[cpus++] : apic_id();
 
 	/* Runtime address of current TSS */
 	tss_entry = &tss[id];
@@ -327,12 +328,15 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 		return status;
 	}
 
-	reset_apic();
+	/* xAPIC mode isn't allowed in TDX */
+	if (!is_tdx_guest())
+		reset_apic();
 	setup_gdt_tss();
 	setup_idt();
 	load_idt();
 	mask_pic_interrupts();
-	enable_apic();
+	if (!is_tdx_guest())
+		enable_apic();
 	enable_x2apic();
 	smp_init();
 	setup_page_table();

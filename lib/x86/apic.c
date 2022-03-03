@@ -147,6 +147,10 @@ int enable_x2apic(void)
         asm ("rdmsr" : "=a"(a), "=d"(d) : "c"(MSR_IA32_APICBASE));
         a |= 1 << 10;
         asm ("wrmsr" : : "a"(a), "d"(d), "c"(MSR_IA32_APICBASE));
+
+        /* software APIC enabled bit is cleared after reset in TD-guest */
+        x2apic_write(APIC_SPIV, 0x1ff);
+
         apic_ops = &x2apic_ops;
         return 1;
     } else {
