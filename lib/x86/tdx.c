@@ -276,3 +276,42 @@ static int handle_io(struct ex_regs *regs, struct ve_info *ve)
 
 	return ve_instr_len(ve);
 }
+
+bool is_tdx_guest(void)
+{
+	static int tdx_guest = -1;
+	struct cpuid c;
+	u32 sig[3];
+
+	if (tdx_guest >= 0)
+		goto done;
+
+	if (cpuid(0).a < TDX_CPUID_LEAF_ID) {
+		tdx_guest = 0;
+		goto done;
+	}
+
+	c = cpuid(TDX_CPUID_LEAF_ID);
+	sig[0] = c.b;
+	sig[1] = c.d;
+	sig[2] = c.c;
+
+	tdx_guest = !memcmp(TDX_IDENT, sig, sizeof(sig));
+
+done:
+	return !!tdx_guest;
+}
+
+efi_status_t setup_tdx(void)
+{
+	if (!is_tdx_guest())
+		return EFI_UNSUPPORTED;
+
+	/* The printf can work here. Since TDVF default exception handler
+	 * can handle the #VE caused by IO read/write during printf() before
+	 * finalizing configuration of the unit test's #VE handler.
+	 */
+	printf("Initialized TDX.\n");
+
+	return EFI_SUCCESS;
+}

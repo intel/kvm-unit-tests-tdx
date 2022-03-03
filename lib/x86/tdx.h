@@ -21,6 +21,9 @@
 
 #define TDX_HYPERCALL_STANDARD		0
 
+#define TDX_CPUID_LEAF_ID	0x21
+#define TDX_IDENT		"IntelTDX    "
+
 /* TDX module Call Leaf IDs */
 #define TDG_VP_VMCALL			0
 
@@ -135,6 +138,12 @@ struct ve_info {
 	u32 instr_len;
 	u32 instr_info;
 };
+
+bool is_tdx_guest(void);
+efi_status_t setup_tdx(void);
+
+#else
+inline bool is_tdx_guest(void) { return false; }
 
 #endif /* CONFIG_EFI */
 
