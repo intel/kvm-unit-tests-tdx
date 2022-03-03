@@ -10,6 +10,7 @@
 #include "efi.h"
 #include <libcflat.h>
 #include <asm/setup.h>
+#include <argv.h>
 
 /* From lib/argv.c */
 extern int __argc, __envc;
@@ -96,6 +97,72 @@ static void efi_exit(efi_status_t code)
 	efi_rs_call(reset_system, EFI_RESET_SHUTDOWN, code, 0, NULL);
 }
 
+/*
+ * Convert the unicode UEFI command line to ASCII, only support ascii < 0x80.
+ * Size of memory allocated return in *cmd_line_len.
+ */
+static efi_status_t efi_convert_cmdline(efi_loaded_image_t *image,
+					char **cmd_line_ptr, int *cmd_line_len)
+{
+	char *cmdline_addr = 0;
+	int options_chars = image->load_options_size;
+	const u16 *options = image->load_options;
+	int options_bytes = 0;
+	efi_status_t status;
+
+	if (!options || !options_chars)
+		return EFI_NOT_FOUND;
+
+	options_chars /= sizeof(*options);
+	status = efi_bs_call(allocate_pool, EFI_LOADER_DATA, options_chars + 1,
+			(void **)&cmdline_addr);
+	if (status != EFI_SUCCESS)
+		return status;
+
+	while (options_bytes < options_chars) {
+		if (options[options_bytes] >= 0x80)
+			return EFI_UNSUPPORTED;
+
+		cmdline_addr[options_bytes] = (char)options[options_bytes];
+		options_bytes++;
+	}
+
+	/*
+	 * UEFI command line should already includes NUL termination,
+	 * just in case.
+	 */
+	cmdline_addr[options_bytes] = '\0';
+
+	*cmd_line_len = options_bytes;
+	*cmd_line_ptr = (char *)cmdline_addr;
+	return EFI_SUCCESS;
+}
+
+static efi_status_t setup_efi_args(efi_handle_t handle)
+{
+	efi_guid_t proto = LOADED_IMAGE_PROTOCOL_GUID;
+	efi_loaded_image_t *image = NULL;
+	char *cmdline_ptr;
+	int options_size = 0;
+	efi_status_t status;
+
+	status = efi_bs_call(handle_protocol, handle, &proto, (void **)&image);
+	if (status != EFI_SUCCESS) {
+		printf("Failed to get handle for LOADED_IMAGE_PROTOCOL\n");
+		return status;
+	}
+
+	status = efi_convert_cmdline(image, &cmdline_ptr, &options_size);
+
+	if (status != EFI_SUCCESS && status != EFI_NOT_FOUND)
+		return status;
+
+	if (status == EFI_SUCCESS)
+		setup_args(cmdline_ptr);
+
+	return EFI_SUCCESS;
+}
+
 efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 {
 	int ret;
@@ -103,6 +170,12 @@ efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 	efi_bootinfo_t efi_bootinfo;
 
 	efi_system_table = sys_tab;
+
+	status = setup_efi_args(handle);
+	if (status != EFI_SUCCESS) {
+		printf("Failed to get efi parameters\n");
+		goto efi_main_error;
+	}
 
 	/* Memory map struct values */
 	efi_memory_desc_t *map = NULL;
