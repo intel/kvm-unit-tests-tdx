@@ -267,10 +267,97 @@ static bool tdx_handle_io(struct ex_regs *regs, u32 exit_qual)
 	return ret ? false : true;
 }
 
+static bool tdx_get_ve_info(struct ve_info *ve)
+{
+	struct tdx_module_output out;
+	u64 ret;
+
+	if (!ve)
+		return false;
+
+	/*
+	 * NMIs and machine checks are suppressed. Before this point any
+	 * #VE is fatal. After this point (TDGETVEINFO call), NMIs and
+	 * additional #VEs are permitted (but it is expected not to
+	 * happen unless kernel panics).
+	 */
+	ret = __tdx_module_call(TDX_GET_VEINFO, 0, 0, 0, 0, &out);
+	if (ret)
+		return false;
+
+	ve->exit_reason = out.rcx;
+	ve->exit_qual	= out.rdx;
+	ve->gla		= out.r8;
+	ve->gpa		= out.r9;
+	ve->instr_len	= out.r10 & UINT_MAX;
+	ve->instr_info	= out.r10 >> 32;
+
+	return true;
+}
+
+static bool tdx_handle_virtualization_exception(struct ex_regs *regs,
+		struct ve_info *ve)
+{
+	bool ret = true;
+	u64 val = ~0ULL;
+	bool do_sti;
+
+	switch (ve->exit_reason) {
+	case EXIT_REASON_HLT:
+		do_sti = !!(regs->rflags & X86_EFLAGS_IF);
+		/* Bypass failed hlt is better than hang */
+		if (!_tdx_halt(!do_sti, do_sti))
+			tdx_printf("HLT instruction emulation failed\n");
+		break;
+	case EXIT_REASON_MSR_READ:
+		ret = tdx_read_msr(regs->rcx, &val);
+		if (ret) {
+			regs->rax = (u32)val;
+			regs->rdx = val >> 32;
+		}
+		break;
+	case EXIT_REASON_MSR_WRITE:
+		ret = tdx_write_msr(regs->rcx, regs->rax, regs->rdx);
+		break;
+	case EXIT_REASON_CPUID:
+		ret = tdx_handle_cpuid(regs);
+		break;
+	case EXIT_REASON_IO_INSTRUCTION:
+		ret = tdx_handle_io(regs, ve->exit_qual);
+		break;
+	default:
+		tdx_printf("Unexpected #VE: %ld\n", ve->exit_reason);
+		return false;
+	}
+
+	/* After successful #VE handling, move the IP */
+	if (ret)
+		regs->rip += ve->instr_len;
+
+	return ret;
+}
+
+/* #VE exception handler. */
+static void tdx_handle_ve(struct ex_regs *regs)
+{
+	struct ve_info ve;
+
+	if (!tdx_get_ve_info(&ve)) {
+		tdx_printf("tdx_get_ve_info failed\n");
+		return;
+	}
+
+	tdx_handle_virtualization_exception(regs, &ve);
+}
+
 efi_status_t setup_tdx(void)
 {
 	if (!is_tdx_guest())
 		return EFI_UNSUPPORTED;
+
+	handle_exception(20, tdx_handle_ve);
+
+	printf("Initialized TDX.\n");
 
 	return EFI_SUCCESS;
 }
