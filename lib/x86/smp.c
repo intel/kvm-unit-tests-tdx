@@ -59,13 +59,45 @@ static __attribute__((used)) void ipi(void)
 }
 
 asm (
-	 "ipi_entry: \n"
-	 "   call ipi \n"
-#ifndef __x86_64__
-	 "   iret"
-#else
-	 "   iretq"
+	 "ipi_entry: \n\t"
+#ifdef __x86_64__
+	 "push %r15\n\t"
+	 "push %r14\n\t"
+	 "push %r13\n\t"
+	 "push %r12\n\t"
+	 "push %r11\n\t"
+	 "push %r10\n\t"
+	 "push %r9\n\t"
+	 "push %r8\n\t"
 #endif
+	 "push %"R "di\n\t"
+	 "push %"R "si\n\t"
+	 "push %"R "bp\n\t"
+	 "push %"R "bx\n\t"
+	 "push %"R "dx\n\t"
+	 "push %"R "cx\n\t"
+	 "push %"R "ax\n\t"
+
+	 "call ipi \n\t"
+
+	 "pop %"R "ax\n\t"
+	 "pop %"R "cx\n\t"
+	 "pop %"R "dx\n\t"
+	 "pop %"R "bx\n\t"
+	 "pop %"R "bp\n\t"
+	 "pop %"R "si\n\t"
+	 "pop %"R "di\n\t"
+#ifdef __x86_64__
+	 "pop %r8\n\t"
+	 "pop %r9\n\t"
+	 "pop %r10\n\t"
+	 "pop %r11\n\t"
+	 "pop %r12\n\t"
+	 "pop %r13\n\t"
+	 "pop %r14\n\t"
+	 "pop %r15\n\t"
+#endif
+	 "iret"W" \n\t"
 	 );
 
 int cpu_count(void)
