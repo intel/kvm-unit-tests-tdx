@@ -68,6 +68,11 @@ static struct mbi_bootinfo *bootinfo;
 #ifdef __x86_64__
 void find_highmem(void)
 {
+#ifdef TARGET_EFI
+	/* The largest free memory region is already chosen in setup_efi() */
+	return;
+#endif /* TARGET_EFI */
+
 	/* Memory above 4 GB is only supported on 64-bit systems.  */
 	if (!(bootinfo->flags & 64))
 	    	return;
