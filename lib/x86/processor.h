@@ -29,6 +29,7 @@
 #define GP_VECTOR 13
 #define PF_VECTOR 14
 #define AC_VECTOR 17
+#define VE_VECTOR 20
 #define CP_VECTOR 21
 
 #define X86_CR0_PE_BIT		(0)

@@ -29,6 +29,9 @@
 #define EXIT_REASON_MSR_READ            31
 #define EXIT_REASON_MSR_WRITE           32
 
+/* TDX Module call Leaf IDs */
+#define TDX_GET_VEINFO			3
+
 /*
  * Used in __tdx_module_call() helper function to gather the
  * output registers' values of TDCALL instruction when requesting
@@ -57,6 +60,20 @@ struct tdx_hypercall_output {
 	u64 r13;
 	u64 r14;
 	u64 r15;
+};
+
+/*
+ * Used by #VE exception handler to gather the #VE exception
+ * info from the TDX module. This is software only structure
+ * and not related to TDX module/VMM.
+ */
+struct ve_info {
+	u64 exit_reason;
+	u64 exit_qual;
+	u64 gla;	/* Guest Linear (virtual) Address */
+	u64 gpa;	/* Guest Physical (virtual) Address */
+	u32 instr_len;
+	u32 instr_info;
 };
 
 bool is_tdx_guest(void);
