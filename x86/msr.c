@@ -5,6 +5,7 @@
 #include "processor.h"
 #include "msr.h"
 #include <stdlib.h>
+#include "tdx.h"
 
 /**
  * This test allows two modes:
@@ -97,9 +98,11 @@ static void test_wrmsr(u32 msr, const char *name, unsigned long long val)
 static void test_wrmsr_fault(u32 msr, const char *name, unsigned long long val)
 {
 	unsigned char vector = wrmsr_safe(msr, val);
-
-	report(vector == GP_VECTOR,
-	       "Expected #GP on WRSMR(%s, 0x%llx), got vector %d",
+	bool pass = false;
+	if (vector == GP_VECTOR || (vector == VE_VECTOR && is_tdx_guest()))
+		pass = true;
+	report(pass,
+	       "Expected #GP/#VE on WRSMR(%s, 0x%llx), got vector %d",
 	       name, val, vector);
 }
 
@@ -107,13 +110,20 @@ static void test_rdmsr_fault(u32 msr, const char *name)
 {
 	uint64_t ignored;
 	unsigned char vector = rdmsr_safe(msr, &ignored);
-
-	report(vector == GP_VECTOR,
-	       "Expected #GP on RDSMR(%s), got vector %d", name, vector);
+	bool pass = false;
+	if (vector == GP_VECTOR || (vector == VE_VECTOR && is_tdx_guest()))
+		pass = true;
+	report(pass,
+	       "Expected #GP/#VE on RDSMR(%s), got vector %d", name, vector);
 }
 
 static void test_msr(struct msr_info *msr, bool is_64bit_host)
 {
+	/* Changing MSR_IA32_MISC_ENABLE and MSR_CSTAR is unsupported in TDX */
+	if ((msr->index == MSR_IA32_MISC_ENABLE || msr->index == MSR_CSTAR) &&
+	    is_tdx_guest())
+		return;
+
 	if (is_64bit_host || !msr->is_64bit_only) {
 		__test_msr_rw(msr->index, msr->name, msr->value, msr->keep);
 
@@ -223,6 +233,24 @@ static void test_mce_msrs(void)
 	}
 }
 
+static enum x2apic_reg_semantics get_x2apic_reg_semantics2(u32 reg)
+{
+	enum x2apic_reg_semantics ret;
+	ret = get_x2apic_reg_semantics(reg);
+
+	if (is_tdx_guest()) {
+		switch (reg) {
+		case APIC_ARBPRI:
+		case APIC_EOI:
+		case APIC_RRR:
+		case APIC_DFR:
+		case APIC_SELF_IPI:
+			ret |= X2APIC_RO;
+		}
+	}
+	return ret;
+}
+
 static void __test_x2apic_msrs(bool x2apic_enabled)
 {
 	enum x2apic_reg_semantics semantics;
@@ -234,7 +262,7 @@ static void __test_x2apic_msrs(bool x2apic_enabled)
 		snprintf(msr_name, sizeof(msr_name), "x2APIC MSR 0x%x", index);
 
 		if (x2apic_enabled)
-			semantics = get_x2apic_reg_semantics(i);
+			semantics = get_x2apic_reg_semantics2(i);
 		else
 			semantics = X2APIC_INVALID;
 
@@ -270,13 +298,15 @@ static void __test_x2apic_msrs(bool x2apic_enabled)
 
 static void test_x2apic_msrs(void)
 {
+	if (is_tdx_guest())
+		goto test_x2apic;
 	reset_apic();
 
 	__test_x2apic_msrs(false);
 
 	if (!enable_x2apic())
 		return;
-
+test_x2apic:
 	__test_x2apic_msrs(true);
 }
 
