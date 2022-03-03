@@ -96,6 +96,8 @@ int tdx_hcall_gpa_intent(phys_addr_t start, phys_addr_t end,
 			 enum tdx_map_type map_type);
 bool tdx_accept_memory(phys_addr_t start, phys_addr_t end);
 efi_status_t setup_tdx(efi_bootinfo_t *efi_bootinfo);
+efi_status_t tdx_aps_init(void);
+void tdx_ap_init(void);
 
 /* Helper function used to communicate with the TDX module */
 u64 __tdx_module_call(u64 fn, u64 rcx, u64 rdx, u64 r8, u64 r9,

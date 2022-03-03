@@ -41,6 +41,8 @@
 
 	.globl _start
 _start:
+	lea stacktop(%rip), %rsp
+	add %rsp, smp_stacktop(%rip)
 	subq $8, %rsp
 	pushq %rcx
 	pushq %rdx
@@ -61,12 +63,20 @@ _start:
 	call efi_main
 	addq $8, %rsp
 
+	.globl ap_start64
+ap_start64:
+	mov $-PAGE_SIZE, %rsp
+	lock xadd %rsp, smp_stacktop(%rip)
+	call secondary_startup_64
+
 .exit:	
   	ret
 
+	.data
+smp_stacktop:  .quad	-PAGE_SIZE
+
  	// hand-craft a dummy .reloc section so EFI knows it's a relocatable executable:
  
- 	.data
 dummy:	.long	0
 
 #define IMAGE_REL_ABSOLUTE	0

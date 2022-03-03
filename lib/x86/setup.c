@@ -279,6 +279,35 @@ static void setup_gdt_tss(void)
 	load_gdt_tss(tss_offset);
 }
 
+static void setup_percpu_area(void)
+{
+	u64 rsp;
+
+	asm volatile ("mov %%rsp, %0" : "=m"(rsp) :: "memory");
+
+	/* per cpu stack size is PAGE_SIZE */
+	rsp &= ~((u64)PAGE_SIZE - 1);
+	wrmsr(MSR_GS_BASE, rsp);
+}
+
+void secondary_startup_64(void)
+{
+	setup_gdt_tss();
+	load_idt();
+	setup_percpu_area();
+	enable_x2apic();
+	tdx_ap_init();
+
+	while (1)
+		safe_halt();
+}
+
+static void aps_init(void)
+{
+	if (is_tdx_guest())
+		tdx_aps_init();
+}
+
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 {
 	efi_status_t status;
@@ -332,6 +361,7 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 		return status;
 	}
 
+	setup_percpu_area();
 	/* xAPIC mode isn't allowed in TDX */
 	if (!is_tdx_guest())
 		reset_apic();
@@ -342,6 +372,7 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	if (!is_tdx_guest())
 		enable_apic();
 	enable_x2apic();
+	aps_init();
 	smp_init();
 	setup_page_table();
 
