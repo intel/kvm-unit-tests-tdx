@@ -64,6 +64,12 @@ _start:
 	call efi_main
 	addq $8, %rsp
 
+	.globl tdx_ap_start64
+tdx_ap_start64:
+	mov $-PAGE_SIZE, %rsp
+	lock xadd %rsp, smp_stacktop(%rip)
+	call td_start64
+
 .exit:	
   	ret
 
