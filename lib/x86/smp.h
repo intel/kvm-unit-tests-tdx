@@ -86,6 +86,7 @@ void on_cpus(void (*function)(void *data), void *data);
 void smp_reset_apic(void);
 void bringup_aps(void);
 void ap_online(void);
+bool bringup_aps_acpi(unsigned long start_ip);
 
 extern atomic_t cpu_online_count;
 extern unsigned char online_cpus[(MAX_TEST_CPUS + 7) / 8];

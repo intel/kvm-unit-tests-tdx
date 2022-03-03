@@ -350,5 +350,6 @@ void set_efi_rsdp(struct acpi_table_rsdp *rsdp);
 void *find_acpi_table_addr(u32 sig);
 int acpi_table_parse_madt(enum acpi_madt_type mtype, acpi_table_handler handler);
 int acpi_parse_madt_mp_wakeup(struct acpi_subtable_header *sub_table);
+bool acpi_wakeup_cpu(int apicid, unsigned long start_ip);
 
 #endif

@@ -350,12 +350,21 @@ static int parse_acpi_madt_x2apic(struct acpi_subtable_header* sub_table)
 
 static efi_status_t efi_parse_acpi_madt(void)
 {
-	acpi_table_parse_madt(ACPI_MADT_TYPE_LOCAL_APIC,
-			      parse_acpi_madt_xapic);
-	acpi_table_parse_madt(ACPI_MADT_TYPE_LOCAL_X2APIC,
-			      parse_acpi_madt_x2apic);
-	acpi_table_parse_madt(ACPI_MADT_TYPE_MULTIPROC_WAKEUP,
-			     acpi_parse_madt_mp_wakeup);
+	int count_apic;
+	int count_x2apic;
+	int count_mp_wakup;
+
+	count_apic = acpi_table_parse_madt(ACPI_MADT_TYPE_LOCAL_APIC,
+					   parse_acpi_madt_xapic);
+	count_x2apic = acpi_table_parse_madt(ACPI_MADT_TYPE_LOCAL_X2APIC,
+					     parse_acpi_madt_x2apic);
+	if (is_tdx_guest() && !count_apic && !count_x2apic)
+		return EFI_NOT_FOUND;
+
+	count_mp_wakup = acpi_table_parse_madt(ACPI_MADT_TYPE_MULTIPROC_WAKEUP,
+					       acpi_parse_madt_mp_wakeup);
+	if (is_tdx_guest() && !count_mp_wakup)
+		return EFI_NOT_FOUND;
 
 	return EFI_SUCCESS;
 }
@@ -483,13 +492,17 @@ void ap_start64(void)
 	ap_online();
 }
 
+extern void tdx_ap_start64(void);
 void bsp_rest_init(void)
 {
-	bringup_aps();
-	if (!is_tdx_guest())
+	if (!is_tdx_guest()) {
+		bringup_aps();
 		enable_x2apic();
-	else
+	} else {
+		/* TDX uses ACPI WAKE UP mechanism to wake up APs instead of SIPI */
+		bringup_aps_acpi((unsigned long)tdx_ap_start64);
 		enable_x2apic_ops();
+	}
 	smp_init();
 	pmu_init();
 }

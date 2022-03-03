@@ -13,4 +13,6 @@
 
 #define HAVE_BUILTIN_FLS 1
 
+extern bool test_bit(int nr, const void *addr);
+
 #endif

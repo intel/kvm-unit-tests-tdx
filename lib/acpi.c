@@ -1,5 +1,6 @@
 #include "libcflat.h"
 #include "acpi.h"
+#include "bitops.h"
 #include "asm/barrier.h"
 
 static struct acpi_madt_multiproc_wakeup_mailbox *acpi_mp_wake_mailbox;
@@ -144,4 +145,30 @@ int acpi_parse_madt_mp_wakeup(struct acpi_subtable_header *sub_table)
 	       mp_wakeup->mailbox_version, mp_wakeup->base_address);
 
 	return 0;
+}
+
+bool acpi_wakeup_cpu(int apicid, unsigned long start_ip)
+{
+	if (!acpi_mp_wake_mailbox) {
+		printf("No MP wake up mailbox\n");
+		return false;
+	}
+
+	/*
+	 * Mailbox memory is shared between firmware and OS. Firmware will
+	 * listen on mailbox command address, and once it receives the wakeup
+	 * command, CPU associated with the given apicid will be booted. So,
+	 * the value of apic_id and wakeup_vector has to be set before updating
+	 * the wakeup command. So use smp_store_release to let the compiler know
+	 * about it and preserve the order of writes.
+	 */
+	acpi_mp_wake_mailbox->apic_id = apicid;
+	acpi_mp_wake_mailbox->wakeup_vector = start_ip;
+	smp_store_release(&acpi_mp_wake_mailbox->command,
+			  ACPI_MP_WAKE_COMMAND_WAKEUP);
+
+	while (READ_ONCE(acpi_mp_wake_mailbox->command))
+		cpu_relax();
+
+	return true;
 }
