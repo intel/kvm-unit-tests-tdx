@@ -383,6 +383,26 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	return EFI_SUCCESS;
 }
 
+static void setup_percpu_area(void)
+{
+	u64 rsp;
+
+	asm volatile ("mov %%rsp, %0" : "=m"(rsp) :: "memory");
+
+	/* per cpu stack size is PAGE_SIZE */
+	rsp &= ~((u64)PAGE_SIZE - 1);
+	wrmsr(MSR_GS_BASE, rsp);
+}
+
+void td_start64(void)
+{
+	setup_gdt_tss();
+	setup_segments64();
+	load_idt();
+	setup_percpu_area();
+	enable_x2apic();
+	tdx_ap_online();
+}
 #endif /* CONFIG_EFI */
 
 void setup_libcflat(void)
@@ -417,7 +437,11 @@ void ap_start64(void)
 
 void bsp_rest_init(void)
 {
-	bringup_aps();
+	if (!is_tdx_guest()) {
+		bringup_aps();
+	} else {
+		bringup_tdx_aps();
+	}
 	enable_x2apic();
 	smp_init();
 	pmu_init();

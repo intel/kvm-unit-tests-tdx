@@ -12,9 +12,14 @@
 #include "tdx.h"
 #include "errno.h"
 #include "bitops.h"
+#include "atomic.h"
+#include "fwcfg.h"
+#include "x86/acpi.h"
 #include "x86/processor.h"
 #include "x86/smp.h"
+#include "x86/apic.h"
 #include "asm/page.h"
+#include "asm/barrier.h"
 
 #define BUFSZ		2000
 #define serial_iobase	0x3f8
@@ -663,4 +668,36 @@ efi_status_t setup_tdx(efi_bootinfo_t *efi_bootinfo)
 	printf("Initialized TDX.\n");
 
 	return EFI_SUCCESS;
+}
+
+extern u32 smp_stacktop;
+extern u8 stacktop;
+extern void tdx_ap_start64(void);
+
+/* TDX uses ACPI WAKE UP mechanism to wake up APs instead of SIPI */
+efi_status_t bringup_tdx_aps(void)
+{
+	u32 i, total_cpus = cpu_count_update();
+
+	/* BSP is already online */
+	set_bit(id_map[0], online_cpus);
+
+	smp_stacktop = ((u64) (&stacktop)) - PAGE_SIZE;
+
+	for (i = 1; i < total_cpus; i++) {
+		if (acpi_wakeup_cpu(id_map[i], (u64)tdx_ap_start64))
+			return EFI_DEVICE_ERROR;
+	}
+
+	while (atomic_read(&cpu_online_count) != total_cpus)
+		cpu_relax();
+
+	return EFI_SUCCESS;
+}
+
+void tdx_ap_online(void)
+{
+	atomic_inc(&cpu_online_count);
+	while (1)
+		safe_halt();
 }

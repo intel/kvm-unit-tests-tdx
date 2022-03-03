@@ -158,9 +158,12 @@ phys_addr_t tdx_shared_mask(void);
 bool tdx_accept_memory(phys_addr_t start, phys_addr_t end);
 bool tdx_enc_status_changed(phys_addr_t start, phys_addr_t end, bool enc);
 efi_status_t setup_tdx(efi_bootinfo_t *efi_bootinfo);
+efi_status_t bringup_tdx_aps(void);
+void tdx_ap_online(void);
 
 #else
 inline bool is_tdx_guest(void) { return false; }
+inline void bringup_tdx_aps(void) { };
 #endif /* CONFIG_EFI */
 
 #endif /* _ASM_X86_TDX_H */

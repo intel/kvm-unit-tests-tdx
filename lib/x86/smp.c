@@ -67,6 +67,12 @@ asm (
 #endif
 	 );
 
+int cpu_count_update(void)
+{
+	_cpu_count = fwcfg_get_nb_cpus();
+	return _cpu_count;
+}
+
 int cpu_count(void)
 {
 	return _cpu_count;

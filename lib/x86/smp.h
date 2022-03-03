@@ -77,6 +77,7 @@ BUILD_PERCPU_OP(apic_ops);
 
 void smp_init(void);
 
+int cpu_count_update(void);
 int cpu_count(void);
 int smp_id(void);
 int cpus_active(void);
