@@ -365,11 +365,17 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	 * Resetting the APIC sets the per-vCPU APIC ops and so must be
 	 * done after loading GS.base with the per-vCPU data.
 	 */
-	reset_apic();
-	mask_pic_interrupts();
-	setup_page_table();
-	enable_apic();
+	if (!is_tdx_guest()) {
+		reset_apic();
+		mask_pic_interrupts();
+		enable_apic();
+	} else {
+		enable_x2apic_ops();
+		sw_enable_x2apic();
+	}
+
 	save_id();
+	setup_page_table();
 	bsp_rest_init();
 
 	return EFI_SUCCESS;
@@ -401,17 +407,28 @@ void ap_start64(void)
 	load_gdt();
 	load_idt();
 	setup_tss64();
-	reset_apic();
-	save_id();
-	enable_apic();
-	enable_x2apic();
+
+	if (!is_tdx_guest()) {
+		reset_apic();
+		save_id();
+		enable_apic();
+		enable_x2apic();
+	} else {
+		enable_x2apic_ops();
+		sw_enable_x2apic();
+		save_id();
+	}
+
 	ap_online();
 }
 
 void bsp_rest_init(void)
 {
 	bringup_aps();
-	enable_x2apic();
+	if (!is_tdx_guest())
+		enable_x2apic();
+	else
+		enable_x2apic_ops();
 	smp_init();
 	pmu_init();
 }

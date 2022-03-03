@@ -160,6 +160,11 @@ int enable_x2apic(void)
 	}
 }
 
+void enable_x2apic_ops(void)
+{
+	this_cpu_write_apic_ops((void *)&x2apic_ops);
+}
+
 uint32_t pre_boot_apic_id(void)
 {
 	u32 msr_lo, msr_hi;
@@ -239,6 +244,12 @@ void enable_apic(void)
 {
 	printf("enabling apic\n");
 	xapic_write(APIC_SPIV, 0x1ff);
+}
+
+void sw_enable_x2apic(void)
+{
+	printf("sw enabling x2apic\n");
+	x2apic_write(APIC_SPIV, 0x1ff);
 }
 
 void mask_pic_interrupts(void)

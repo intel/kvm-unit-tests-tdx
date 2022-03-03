@@ -53,8 +53,9 @@ void apic_icr_write(uint32_t val, uint32_t dest);
 uint32_t apic_id(void);
 uint32_t pre_boot_apic_id(void);
 
-
+void enable_x2apic_ops(void);
 int enable_x2apic(void);
+void sw_enable_x2apic(void);
 void disable_apic(void);
 void reset_apic(void);
 void init_apic_map(void);
