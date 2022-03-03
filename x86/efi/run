@@ -18,6 +18,7 @@ source config.mak
 : "${EFI_TEST:=efi-tests}"
 : "${EFI_SMP:=1}"
 : "${EFI_CASE:=$(basename $1 .efi)}"
+: "${EFI_TDX:=n}"
 
 if [ ! -f "$EFI_UEFI" ]; then
 	echo "UEFI firmware not found: $EFI_UEFI"
@@ -28,6 +29,24 @@ fi
 
 # Remove the TEST_CASE from $@
 shift 1
+
+# TDX support -kernel QEMU parameter, could utilize the original way of
+# verifying QEMU's configuration. CPU feature customization isn't supported
+# in TDX currently, so pass through all the features with `-cpu host`
+if [ "$EFI_TDX" == "y" ]; then
+	"$TEST_DIR/run" \
+	-bios "$EFI_UEFI" \
+	-object tdx-guest,id=tdx0,sept-ve-disable=on \
+	-machine q35,kernel_irqchip=split,confidential-guest-support=tdx0 \
+	-kernel "$EFI_SRC/$EFI_CASE.efi" \
+	-net none \
+	-nographic \
+	-m 256 \
+	"$@" \
+	-cpu host
+
+	exit $?
+fi
 
 if [ "$EFI_CASE" = "_NO_FILE_4Uhere_" ]; then
 	EFI_CASE=dummy
