@@ -3,8 +3,10 @@
 #include "vmalloc.h"
 #include "alloc_page.h"
 #include "smp.h"
+#include "tdx.h"
 
 static pteval_t pte_opt_mask;
+static int page_level;
 
 pteval_t *install_pte(pgd_t *cr3,
 		      int pte_level,
@@ -16,7 +18,7 @@ pteval_t *install_pte(pgd_t *cr3,
     pteval_t *pt = cr3;
     unsigned offset;
 
-    for (level = PAGE_LEVEL; level > pte_level; --level) {
+    for (level = page_level; level > pte_level; --level) {
 	offset = PGDIR_OFFSET((uintptr_t)virt, level);
 	if (!(pt[offset] & PT_PRESENT_MASK)) {
 	    pteval_t *new_pt = pt_page;
@@ -49,9 +51,9 @@ struct pte_search find_pte_level(pgd_t *cr3, void *virt,
 	unsigned shift;
 	struct pte_search r;
 
-	assert(lowest_level >= 1 && lowest_level <= PAGE_LEVEL);
+	assert(lowest_level >= 1 && lowest_level <= page_level);
 
-	for (r.level = PAGE_LEVEL;; --r.level) {
+	for (r.level = page_level;; --r.level) {
 		shift = (r.level - 1) * PGDIR_WIDTH + 12;
 		offset = ((uintptr_t)virt >> shift) & PGDIR_MASK;
 		r.pte = &pt[offset];
@@ -185,6 +187,7 @@ void *setup_mmu(phys_addr_t end_of_memory, void *opt_mask)
 	pte_opt_mask = PT_USER_MASK;
 
     memset(cr3, 0, PAGE_SIZE);
+    page_level = !!(read_cr4() & X86_CR4_LA57) ? 5 : PAGE_LEVEL;
 
 #ifdef __x86_64__
     if (end_of_memory < (1ul << 32))
@@ -201,7 +204,11 @@ void *setup_mmu(phys_addr_t end_of_memory, void *opt_mask)
 #ifndef __x86_64__
     write_cr4(X86_CR4_PSE);
 #endif
-    write_cr0(X86_CR0_PG |X86_CR0_PE | X86_CR0_WP);
+    /* According to TDX module spec 10.6.1 CR0.NE should be 1 */
+    if (is_tdx_guest())
+        write_cr0(X86_CR0_PG | X86_CR0_PE | X86_CR0_WP | X86_CR0_NE);
+    else
+        write_cr0(X86_CR0_PG | X86_CR0_PE | X86_CR0_WP);
 
     printf("paging enabled\n");
     printf("cr0 = %lx\n", read_cr0());
