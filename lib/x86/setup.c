@@ -265,9 +265,22 @@ static efi_status_t setup_rsdp(efi_bootinfo_t *efi_bootinfo)
 }
 
 /* Defined in cstart64.S or efistart64.S */
+extern u8 ptl5;
 extern u8 ptl4;
 extern u8 ptl3;
 extern u8 ptl2;
+
+static void load_page_table(void)
+{
+	/*
+	 * Load new page table based on the level of firmware provided page
+	 * table.
+	 */
+	if (read_cr4() & X86_CR4_LA57)
+		write_cr3((ulong)&ptl5);
+	else
+		write_cr3((ulong)&ptl4);
+}
 
 static void setup_page_table(void)
 {
@@ -281,6 +294,9 @@ static void setup_page_table(void)
 	/* Set AMD SEV C-Bit for page table entries */
 	flags |= get_amd_sev_c_bit_mask();
 
+	/* Level 5 */
+	curr_pt = (pgd_t *)&ptl5;
+	curr_pt[0] = ((phys_addr_t)&ptl4) | flags;
 	/* Level 4 */
 	curr_pt = (pgd_t *)&ptl4;
 	curr_pt[0] = ((phys_addr_t)&ptl3) | flags;
@@ -300,8 +316,7 @@ static void setup_page_table(void)
 		setup_ghcb_pte((pgd_t *)&ptl4);
 	}
 
-	/* Load 4-level page table */
-	write_cr3((ulong)&ptl4);
+	load_page_table();
 }
 
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
