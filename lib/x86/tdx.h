@@ -26,7 +26,14 @@
 
 /* TDX module Call Leaf IDs */
 #define TDG_VP_VMCALL			0
+#define TDG_VP_INFO			1
 #define TDG_VP_VEINFO_GET		3
+#define TDG_MEM_PAGE_ACCEPT		6
+
+/* TDX hypercall Leaf IDs */
+#define TDVMCALL_MAP_GPA		0x10001
+
+#define TDVMCALL_STATUS_RETRY		1
 
 /*
  * Bitmasks of exposed registers (with VMM).
@@ -56,6 +63,12 @@
 	 TDX_R10 | TDX_R11 | TDX_R12 | TDX_R13 | TDX_R14 | TDX_R15)
 
 #define BUG_ON(condition) do { if (condition) abort(); } while (0)
+
+/* TDX supported page sizes from the TDX module ABI. */
+#define TDX_PS_4K	0
+#define TDX_PS_2M	1
+#define TDX_PS_1G	2
+#define TDX_PS_NR	(TDX_PS_1G + 1)
 
 #define EXIT_REASON_CPUID               10
 #define EXIT_REASON_HLT                 12
@@ -141,7 +154,10 @@ struct ve_info {
 };
 
 bool is_tdx_guest(void);
-efi_status_t setup_tdx(void);
+phys_addr_t tdx_shared_mask(void);
+bool tdx_accept_memory(phys_addr_t start, phys_addr_t end);
+bool tdx_enc_status_changed(phys_addr_t start, phys_addr_t end, bool enc);
+efi_status_t setup_tdx(efi_bootinfo_t *efi_bootinfo);
 
 #else
 inline bool is_tdx_guest(void) { return false; }
