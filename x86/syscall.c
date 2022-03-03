@@ -5,6 +5,7 @@
 #include "msr.h"
 #include "desc.h"
 #include "fwcfg.h"
+#include "tdx.h"
 
 static void test_syscall_lazy_load(void)
 {
@@ -106,7 +107,7 @@ int main(int ac, char **av)
 {
     test_syscall_lazy_load();
 
-    if (!no_test_device || !is_intel())
+    if ((!no_test_device || !is_intel()) && !is_tdx_guest())
         test_syscall_tf();
     else
         report_skip("syscall TF handling");

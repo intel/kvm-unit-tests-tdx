@@ -4,6 +4,7 @@
 #include "processor.h"
 #include "msr.h"
 #include <stdlib.h>
+#include "tdx.h"
 
 /**
  * This test allows two modes:
@@ -104,6 +105,11 @@ static void test_rdmsr_fault(u32 msr, const char *name)
 
 static void test_msr(struct msr_info *msr, bool is_64bit_host)
 {
+	/* Changing MSR_IA32_MISC_ENABLE and MSR_CSTAR is unsupported in TDX */
+	if ((msr->index == MSR_IA32_MISC_ENABLE || msr->index == MSR_CSTAR) &&
+	    is_tdx_guest())
+		return;
+
 	if (is_64bit_host || !msr->is_64bit_only) {
 		__test_msr_rw(msr->index, msr->name, msr->value, msr->keep);
 
