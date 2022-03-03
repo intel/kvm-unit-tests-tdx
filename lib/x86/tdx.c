@@ -11,15 +11,23 @@
  */
 
 #include "tdx.h"
+#include "errno.h"
 #include "bitops.h"
 #include "errno.h"
 #include "x86/processor.h"
 #include "x86/smp.h"
+#include "asm/page.h"
 
 #define TDX_CPUID_LEAF_ID	0x21
 #define TDX_IDENT		"IntelTDX    "
 
+#define TDG_VP_INFO		1
 #define TDG_VP_VEINFO_GET	3
+#define TDG_MEM_PAGE_ACCEPT	6
+
+#define TDG_VMCALL_MAP_GPA	0x10001
+
+#define TDG_VMCALL_STATUS_RETRY 1
 
 /* Port I/O direction */
 #define PORT_READ	0
@@ -37,6 +45,14 @@
 #define EXIT_REASON_MSR_READ            31
 #define EXIT_REASON_MSR_WRITE           32
 
+/* TDX supported page size id from the TDX module ABI. */
+enum tdx_pg_level {
+	TDX_PS_4K,
+	TDX_PS_2M,
+	TDX_PS_1G,
+	TDX_PS_NR,
+};
+
 /*
  * Used by the #VE exception handler to gather the #VE exception
  * info from the TDX module. This is a software only structure
@@ -52,6 +68,11 @@ struct ve_info {
 	u32 instr_len;
 	u32 instr_info;
 };
+
+static struct {
+	unsigned int gpa_width;
+	unsigned long attributes;
+} td_info;
 
 u64 __tdx_hypercall(struct tdx_module_args *args)
 {
@@ -364,6 +385,30 @@ static bool tdx_get_ve_info(struct ve_info *ve)
 	return true;
 }
 
+static void tdx_get_info(void)
+{
+	struct tdx_module_args args = {};
+	u64 ret;
+
+	/*
+	 * TDINFO TDX module call is used to get the TD execution environment
+	 * information like GPA width, number of available vcpus, debug mode
+	 * information, etc. More details about the ABI can be found in TDX
+	 * Guest-Host-Communication Interface (GHCI), section 2.4.2 TDCALL
+	 * [TDG.VP.INFO].
+	 */
+	ret = __tdcall_ret(TDG_VP_INFO, &args);
+	/*
+	 * Non zero return means buggy TDX module (which is
+	 * fatal) so panic.
+	 */
+	if (ret)
+		abort();
+
+	td_info.gpa_width = args.rcx & GENMASK(5, 0);
+	td_info.attributes = args.rdx;
+}
+
 static bool tdx_handle_virt_exception(struct ex_regs *regs,
 		struct ve_info *ve)
 {
@@ -424,7 +469,178 @@ static void tdx_handle_ve(struct ex_regs *regs)
 	tdx_handle_virt_exception(regs, &ve);
 }
 
-efi_status_t setup_tdx(void)
+static unsigned long try_accept_one(phys_addr_t start, unsigned long len,
+				    enum pg_level pg_level)
+{
+	unsigned long accept_size = 1UL << PGDIR_BITS(pg_level);
+	struct tdx_module_args args = {};
+	u8 page_size;
+
+	if (!IS_ALIGNED(start, accept_size))
+		return 0;
+
+	if (len < accept_size)
+		return 0;
+
+	/*
+	 * Pass the page physical address to the TDX module to accept the
+	 * pending, private page.
+	 *
+	 * Bits 2:0 of RCX encode page size: 0 - 4K, 1 - 2M, 2 - 1G.
+	 */
+	switch (pg_level) {
+	case PG_LEVEL_4K:
+		page_size = TDX_PS_4K;
+		break;
+	case PG_LEVEL_2M:
+		page_size = TDX_PS_2M;
+		break;
+	case PG_LEVEL_1G:
+		page_size = TDX_PS_1G;
+		break;
+	default:
+		return 0;
+	}
+
+	args.rcx = start | page_size;
+	if (__tdcall(TDG_MEM_PAGE_ACCEPT, &args))
+		return 0;
+
+	return accept_size;
+}
+
+bool tdx_accept_memory(phys_addr_t start, phys_addr_t end)
+{
+	/*
+	 * For shared->private conversion, accept the page using
+	 * TDG_MEM_PAGE_ACCEPT TDX module call.
+	 */
+	while (start < end) {
+		unsigned long len = end - start;
+		unsigned long accept_size;
+
+		/*
+		 * Try larger accepts first. It gives chance to VMM to keep
+		 * 1G/2M Secure EPT entries where possible and speeds up
+		 * process by cutting number of hypercalls (if successful).
+		 */
+
+		accept_size = try_accept_one(start, len, PG_LEVEL_1G);
+		if (!accept_size)
+			accept_size = try_accept_one(start, len, PG_LEVEL_2M);
+		if (!accept_size)
+			accept_size = try_accept_one(start, len, PG_LEVEL_4K);
+		if (!accept_size)
+			return false;
+		start += accept_size;
+	}
+
+	return true;
+}
+
+/*
+ * Notify the VMM about page mapping conversion. More info about ABI
+ * can be found in TDX Guest-Host-Communication Interface (GHCI),
+ * section "TDG.VP.VMCALL<MapGPA>".
+ */
+static bool tdx_map_gpa(phys_addr_t start, phys_addr_t end, bool enc)
+{
+	/* Retrying the hypercall a second time should succeed; use 3 just in case */
+	const int max_retries_per_page = 3;
+	int retry_count = 0;
+
+	if (!enc) {
+		/* Set the shared (decrypted) bits: */
+		start |= tdx_shared_mask();
+		end   |= tdx_shared_mask();
+	}
+
+	while (retry_count < max_retries_per_page) {
+		struct tdx_module_args args = {
+			.r10 = TDX_HYPERCALL_STANDARD,
+			.r11 = TDG_VMCALL_MAP_GPA,
+			.r12 = start,
+			.r13 = end - start };
+
+		u64 map_fail_paddr;
+		u64 ret = __tdx_hypercall(&args);
+
+		if (ret != TDG_VMCALL_STATUS_RETRY)
+			return !ret;
+		/*
+		 * The guest must retry the operation for the pages in the
+		 * region starting at the GPA specified in R11. R11 comes
+		 * from the untrusted VMM. Sanity check it.
+		 */
+		map_fail_paddr = args.r11;
+		if (map_fail_paddr < start || map_fail_paddr >= end)
+			return false;
+
+		/* "Consume" a retry without forward progress */
+		if (map_fail_paddr == start) {
+			retry_count++;
+			continue;
+		}
+
+		start = map_fail_paddr;
+		retry_count = 0;
+	}
+
+	return false;
+}
+
+bool tdx_enc_status_changed(phys_addr_t start, phys_addr_t end, bool enc)
+{
+	if (!tdx_map_gpa(start, end, enc))
+		return false;
+
+	/* shared->private conversion requires memory to be accepted before use */
+	if (enc)
+		return tdx_accept_memory(start, end);
+
+	return true;
+}
+
+static bool tdx_accept_memory_regions(struct efi_boot_memmap *mem_map)
+{
+	unsigned long i, nr_desc = *mem_map->map_size / *mem_map->desc_size;
+
+	for (i = 0; i < nr_desc; i++) {
+		efi_memory_desc_t *d;
+		bool ret;
+		unsigned long s;
+		unsigned long e;
+
+		d = efi_memdesc_ptr(*mem_map->map, *mem_map->desc_size, i);
+		if (d->type != EFI_UNACCEPTED_MEMORY)
+			continue;
+		if (!IS_ALIGNED(d->phys_addr, PAGE_SIZE)) {
+			printf("WARNING: EFI: Align down PAGE_SIZE for base %lx.\n",
+			       d->phys_addr);
+			d->phys_addr = ALIGN_DOWN(d->phys_addr, PAGE_SIZE);
+		}
+
+		s = d->phys_addr;
+		e = d->phys_addr + d->num_pages * PAGE_SIZE;
+		ret = tdx_enc_status_changed(s, e, true);
+		if (!ret) {
+			printf("ERROR: EFI: Failed to accepte memory on range [0x%lx, 0x%lx)\n",
+			       s, e);
+			return ret;
+		}
+
+		d->type = EFI_CONVENTIONAL_MEMORY;
+	}
+	return true;
+}
+
+/* The highest bit of a guest physical address is the "sharing" bit */
+phys_addr_t tdx_shared_mask(void)
+{
+	return 1ULL << (td_info.gpa_width - 1);
+}
+
+efi_status_t setup_tdx(efi_bootinfo_t *efi_bootinfo)
 {
 	if (!is_tdx_guest())
 		return EFI_UNSUPPORTED;
@@ -437,6 +653,14 @@ efi_status_t setup_tdx(void)
 	printf("Detected TDX.\n");
 
 	handle_exception(VE_VECTOR, tdx_handle_ve);
+
+	tdx_get_info();
+	/*
+	 * TDVF support partial memory accept, accept remaining memory
+	 * in setup tdx stage so memory allocator can use it later
+	 */
+	if (!tdx_accept_memory_regions(&efi_bootinfo->mem_map))
+		return EFI_OUT_OF_RESOURCES;
 
 	return EFI_SUCCESS;
 }

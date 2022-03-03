@@ -85,7 +85,10 @@ u64 __tdcall_saved_ret(u64 fn, struct tdx_module_args *args);
 u64 __tdx_hypercall(struct tdx_module_args *args);
 
 bool is_tdx_guest(void);
-efi_status_t setup_tdx(void);
+efi_status_t setup_tdx(efi_bootinfo_t *efi_bootinfo);
+phys_addr_t tdx_shared_mask(void);
+bool tdx_accept_memory(phys_addr_t start, phys_addr_t end);
+bool tdx_enc_status_changed(phys_addr_t start, phys_addr_t end, bool enc);
 
 #else
 
