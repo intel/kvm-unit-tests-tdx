@@ -30,6 +30,12 @@ the env variable `EFI_UEFI`:
 
     EFI_UEFI=/path/to/OVMF.fd ./x86/efi/run ./x86/msr.efi
 
+### Run test cases with UEFI in TDX environment
+
+To run a test case with UEFI and TDX enabled:
+
+    EFI_TDX=y ./x86/efi/run ./x86/msr.efi
+
 ## Code structure
 
 ### Code from GNU-EFI
