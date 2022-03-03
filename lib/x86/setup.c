@@ -112,8 +112,9 @@ unsigned long setup_tss(u8 *stacktop)
 {
 	u32 id;
 	tss64_t *tss_entry;
+	static u32 cpus = 0;
 
-	id = pre_boot_apic_id();
+	id = is_tdx_guest() ? id_map[cpus++] : pre_boot_apic_id();
 
 	/* Runtime address of current TSS */
 	tss_entry = &tss[id];
@@ -366,11 +367,13 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	 * Resetting the APIC sets the per-vCPU APIC ops and so must be
 	 * done after loading GS.base with the per-vCPU data.
 	 */
-	reset_apic();
-	mask_pic_interrupts();
+	if (!is_tdx_guest()) {
+		reset_apic();
+		mask_pic_interrupts();
+		enable_apic();
+		save_id();
+	}
 	setup_page_table();
-	enable_apic();
-	save_id();
 	bsp_rest_init();
 
 	return EFI_SUCCESS;
