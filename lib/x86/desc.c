@@ -52,11 +52,6 @@ struct descriptor_table_ptr gdt_descr = {
 	.base = (unsigned long)gdt,
 };
 
-#ifndef __x86_64__
-__attribute__((regparm(1)))
-#endif
-void do_handle_exception(struct ex_regs *regs);
-
 /*
  * Fill an idt_entry_t or call gate entry, clearing e_sz bytes first.
  *
