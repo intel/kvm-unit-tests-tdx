@@ -407,17 +407,25 @@ void save_id(void)
 void ap_start64(void)
 {
 	setup_gdt_tss();
-	reset_apic();
 	load_idt();
-	save_id();
-	enable_apic();
+	if (!is_tdx_guest()) {
+		reset_apic();
+		save_id();
+		enable_apic();
+	}
 	enable_x2apic();
 	ap_online();
 }
 
+extern void tdx_ap_start64(void);
 void bsp_rest_init(void)
 {
-	bringup_aps();
+	if (!is_tdx_guest()) {
+		bringup_aps();
+	} else {
+		/* TDX uses ACPI WAKE UP mechanism to wake up APs instead of SIPI */
+		bringup_aps_acpi((u64)tdx_ap_start64);
+	}
 	enable_x2apic();
 	smp_init();
 	pmu_init();
