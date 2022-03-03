@@ -305,10 +305,90 @@ done:
 	return !!tdx_guest;
 }
 
+static bool tdx_get_ve_info(struct ve_info *ve)
+{
+	struct tdx_module_args args = {};
+	u64 ret;
+
+	if (!ve)
+		return false;
+
+	/*
+	 * NMIs and machine checks are suppressed. Before this point any
+	 * #VE is fatal. After this point (TDGETVEINFO call), NMIs and
+	 * additional #VEs are permitted (but it is expected not to
+	 * happen unless kernel panics).
+	 */
+	ret = __tdcall_ret(TDG_VP_VEINFO_GET, &args);
+	if (ret)
+		return false;
+
+	ve->exit_reason = args.rcx;
+	ve->exit_qual	= args.rdx;
+	ve->gla		= args.r8;
+	ve->gpa		= args.r9;
+	ve->instr_len	= args.r10 & UINT_MAX;
+	ve->instr_info	= args.r10 >> 32;
+
+	return true;
+}
+
+static bool tdx_handle_virt_exception(struct ex_regs *regs,
+		struct ve_info *ve)
+{
+	int insn_len = -EIO;
+
+	switch (ve->exit_reason) {
+	case EXIT_REASON_HLT:
+		insn_len = handle_halt(regs, ve);
+		/* Bypass failed hlt is better than hang */
+		if (insn_len < 0)
+			printf("HLT instruction emulation failed\n");
+		break;
+	case EXIT_REASON_MSR_READ:
+		insn_len = read_msr(regs, ve);
+		break;
+	case EXIT_REASON_MSR_WRITE:
+		insn_len = write_msr(regs, ve);
+		break;
+	case EXIT_REASON_CPUID:
+		insn_len = handle_cpuid(regs, ve);
+		break;
+	case EXIT_REASON_IO_INSTRUCTION:
+		insn_len = handle_io(regs, ve);
+		break;
+	default:
+		printf("WARNING: Unexpected #VE: %ld\n", ve->exit_reason);
+		return false;
+	}
+	if (insn_len < 0)
+		return false;
+
+	/* After successful #VE handling, move the IP */
+	regs->rip += insn_len;
+
+	return true;
+}
+
+/* #VE exception handler. */
+static void tdx_handle_ve(struct ex_regs *regs)
+{
+	struct ve_info ve;
+
+	if (!tdx_get_ve_info(&ve)) {
+		printf("tdx_get_ve_info failed\n");
+		return;
+	}
+
+	tdx_handle_virt_exception(regs, &ve);
+}
+
 efi_status_t setup_tdx(void)
 {
 	if (!is_tdx_guest())
 		return EFI_UNSUPPORTED;
+
+	handle_exception(20, tdx_handle_ve);
 
 	/* The printf can work here. Since TDVF default exception handler
 	 * can handle the #VE caused by IO read/write during printf() before
