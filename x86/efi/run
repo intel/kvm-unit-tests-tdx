@@ -44,7 +44,7 @@ if [ "$EFI_TDX" == "y" ]; then
 	-m 256 \
 	"$@" \
 	-smp "$EFI_SMP" \
-	-cpu host
+	-cpu host,pmu=off
 
 	exit $?
 fi
