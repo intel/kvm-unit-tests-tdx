@@ -43,7 +43,7 @@ if [ "$EFI_TDX" == "y" ]; then
 	-nographic \
 	-m 256 \
 	"$@" \
-	-cpu host
+	-cpu host,pmu=off
 
 	exit $?
 fi
