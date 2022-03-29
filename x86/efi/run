@@ -44,7 +44,7 @@ if [ "$EFI_TDX" == "y" ]; then
 	-m 256M \
 	-object memory-backend-memfd,id=ram1,size=256M \
 	"$@" \
-	-cpu host
+	-cpu host,pmu=off
 
 	exit $?
 fi
