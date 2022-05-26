@@ -19,12 +19,19 @@ source config.mak
 : "${EFI_SMP:=1}"
 : "${EFI_CASE:=$(basename $1 .efi)}"
 : "${EFI_TDX:=n}"
+: "${EFI_UPM:=n}"
 
 if [ ! -f "$EFI_UEFI" ]; then
 	echo "UEFI firmware not found: $EFI_UEFI"
 	echo "Please install the UEFI firmware to this path"
 	echo "Or specify the correct path with the env variable EFI_UEFI"
 	exit 2
+fi
+
+if [ "$EFI_UPM" == "y" ]; then
+	UPM="-object memory-backend-memfd-private,id=ram1 -machine memory-backend=ram1"
+else
+	UPM=""
 fi
 
 # Remove the TEST_CASE from $@
@@ -41,6 +48,7 @@ if [ "$EFI_TDX" == "y" ]; then
 	-kernel "$EFI_SRC/$EFI_CASE.efi" \
 	-net none \
 	-nographic \
+	${UPM} \
 	-m 256 \
 	"$@" \
 	-cpu host,pmu=off
@@ -78,6 +86,7 @@ cp "$EFI_SRC/$EFI_CASE.efi" "$EFI_CASE_BINARY"
 	-drive file.dir="$EFI_TEST/$EFI_CASE/",file.driver=vvfat,file.rw=on,format=raw,if=virtio \
 	-net none \
 	-nographic \
+	${UPM} \
 	-m 256 \
 	"$@" \
 	-smp "$EFI_SMP"
