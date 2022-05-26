@@ -35,9 +35,9 @@ shift 1
 # in TDX currently, so pass through all the features with `-cpu host`
 if [ "$EFI_TDX" == "y" ]; then
 	"$TEST_DIR/run" \
-	-device loader,file="$EFI_UEFI",id=fd0 \
+	-bios "$EFI_UEFI" \
 	-object tdx-guest,id=tdx0 \
-	-machine q35,kvm-type=tdx,pic=no,kernel_irqchip=split,confidential-guest-support=tdx0 \
+	-machine q35,kernel_irqchip=split,confidential-guest-support=tdx0 \
 	-kernel "$EFI_SRC/$EFI_CASE.efi" \
 	-net none \
 	-nographic \
