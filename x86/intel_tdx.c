@@ -81,6 +81,233 @@ static void test_single_step(void)
 	       "single step emulated instructions");
 }
 
+#define CPUID_FIXED0 (0x0)
+#define CPUID_FIXED1 (0xffffffff)
+
+#define CPUID_0_EAX_FIXED	(0x21)
+#define CPUID_0_EAX_MASK	(0xffffffff)
+
+#define CPUID_1_EAX_MASK	(0x3 << 14 | 0xf << 28)
+#define CPUID_1_EBX_FIXED	(0x8 << 8)
+#define CPUID_1_EBX_MASK	(0xff << 8)
+#define CPUID_1_ECX_FIXED	(1 << 13 | 1 << 15 | 1 << 21 | 3 << 25 | 1 << 30)
+#define CPUID_1_ECX_MASK	(1 << 3 | 3 << 5 | 1 << 13 | 3 << 15 | 1 << 21 | 3 << 25 | 3 << 30)
+#define CPUID_1_EDX_FIXED	(7 << 5 | 1 << 9 | 1 << 12 | 1 << 14 | 5 << 19)
+#define CPUID_1_EDX_MASK	(7 << 5 | 3 << 9 | 1 << 12 | 1 << 14 | 7 << 19 | 1 << 30)
+
+#define CPUID_3_EAX_MASK	CPUID_FIXED1
+#define CPUID_3_EBX_MASK	CPUID_FIXED1
+#define CPUID_3_ECX_MASK	CPUID_FIXED1
+#define CPUID_3_EDX_MASK	CPUID_FIXED1
+
+
+#define CPUID_4_0_EAX_MASK	(0xf << 10)
+#define CPUID_4_0_EDX_MASK	(1 << 2)
+#define CPUID_4_1_EAX_MASK	CPUID_4_0_EAX_MASK
+#define CPUID_4_1_EDX_MASK	CPUID_4_0_EDX_MASK
+#define CPUID_4_2_EAX_MASK	CPUID_4_0_EAX_MASK
+#define CPUID_4_2_EDX_MASK	CPUID_4_0_EDX_MASK
+#define CPUID_4_3_EAX_MASK	CPUID_4_0_EAX_MASK
+#define CPUID_4_3_EDX_MASK	(0xfffffff0 << 3)
+#define CPUID_4_4_EAX_MASK	CPUID_FIXED1
+#define CPUID_4_4_EBX_MASK	CPUID_FIXED1
+#define CPUID_4_4_ECX_MASK	CPUID_FIXED1
+#define CPUID_4_4_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_7_0_EAX_FIXED	(1)
+#define CPUID_7_0_EAX_MASK	CPUID_FIXED1
+#define CPUID_7_0_EBX_FIXED	(1 | 1 << 11 | 1 << 18 | 1 << 20 |3 << 23 | 1 << 29)
+#define CPUID_7_0_EBX_MASK	(7 | 1 << 11 | 1 << 14 | 1 << 18 | 1 << 20 |3 << 23 | 1 << 29)
+#define CPUID_7_0_ECX_FIXED	(1 << 24 | 1 << 28)
+#define CPUID_7_0_ECX_MASK	(1 << 15 | 0x1f << 17 | 1 << 24 | 1 << 26 | 7 << 28)
+#define CPUID_7_0_EDX_FIXED	(1 << 26 | 7 << 29)
+#define CPUID_7_0_EDX_MASK	(3 | 3 << 6 | 1 << 9 | 7 << 11 | 1 << 17 | 1 << 21 | 1 << 26 | 7 << 29)
+#define CPUID_7_1_EAX_MASK	(0xf | 7 << 7 | 0x1f << 13 | 0x1f << 27)
+#define CPUID_7_1_EBX_MASK	CPUID_FIXED1
+#define CPUID_7_1_ECX_MASK	CPUID_FIXED1
+#define CPUID_7_1_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_8_0_EAX_MASK	CPUID_FIXED1
+#define CPUID_8_0_EBX_MASK	CPUID_FIXED1
+#define CPUID_8_0_ECX_MASK	CPUID_FIXED1
+#define CPUID_8_0_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_a_EBX_MASK	(1 << 7)
+#define CPUID_a_EDX_MASK	(3 << 13 | 1 << 16)
+
+#define CPUID_d_0_EAX_FIXED	(3)
+#define CPUID_d_0_EAX_MASK	(3 | 3 << 3 | 1 << 8 | 1 << 10 | 1 << 19)
+#define CPUID_d_0_EDX_MASK	CPUID_FIXED1
+#define CPUID_d_1_EAX_FIXED	(3 | 1 << 3)
+#define CPUID_d_1_EAX_MASK	(3 | 1 << 3 | 0x7ffffff << 5)
+#define CPUID_d_1_ECX_MASK	(0xff | 3 << 9 | 1 << 13 | 0xffff << 16)
+#define CPUID_d_1_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_15_EAX_FIXED	(1)
+#define CPUID_15_EAX_MASK	CPUID_FIXED1
+#define CPUID_15_ECX_FIXED	0x17d7840
+#define CPUID_15_ECX_MASK	CPUID_FIXED1
+#define CPUID_15_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_19_ECX_MASK	(0xfffffffe)
+#define CPUID_19_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_21_0_EAX_MASK	CPUID_FIXED1
+#define CPUID_21_0_EBX_FIXED	0x65746e49
+#define CPUID_21_0_EBX_MASK	CPUID_FIXED1
+#define CPUID_21_0_ECX_FIXED	0x20202020
+#define CPUID_21_0_ECX_MASK	CPUID_FIXED1
+#define CPUID_21_0_EDX_FIXED	0x5844546c
+#define CPUID_21_0_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_80000000_EBX_MASK	CPUID_FIXED1
+#define CPUID_80000000_ECX_MASK	CPUID_FIXED1
+#define CPUID_80000000_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_80000001_EAX_MASK	CPUID_FIXED1
+#define CPUID_80000001_EBX_MASK	CPUID_FIXED1
+#define CPUID_80000001_ECX_MASK	(0xf << 1 | 3 << 6 | 0x7fffff << 9)
+#define CPUID_80000001_EDX_FIXED (1 << 20 | 3 << 26 | 1 << 29)
+#define CPUID_80000001_EDX_MASK	(0xfffff7ff)
+
+#define CPUID_80000008_EAX_FIXED (0x34)
+#define CPUID_80000008_EAX_MASK	(0xff | 0xffff << 16)
+#define CPUID_80000008_EBX_FIXED (1 << 9)
+#define CPUID_80000008_EBX_MASK	CPUID_FIXED1
+#define CPUID_80000008_ECX_MASK	CPUID_FIXED1
+#define CPUID_80000008_EDX_MASK	CPUID_FIXED1
+
+typedef struct CPUIDINFO {
+	uint32_t eax;			/* Input EAX for CPUID */
+	bool needs_ecx;			/* CPUID instruction uses ECX as input */
+	enum cpuid_output_regs ecx;	/* Input ECX value for CPUID */
+	int reg;			/* output register (R_* constant) */
+	uint32_t mask;			/* The virtual bit value is fixed 0 */
+	uint32_t value;			/* The virtual bit value is fixed 1 */
+} CPUIDINFO;
+
+CPUIDINFO cpuid_info[] = {
+	{.eax = 0, .reg = EAX, .mask = CPUID_0_EAX_MASK, .value = CPUID_0_EAX_FIXED},
+	{.eax = 1, .reg = EAX, .mask = CPUID_1_EAX_MASK},
+	{.eax = 1, .reg = EBX, .mask = CPUID_1_EBX_MASK, .value = CPUID_1_EBX_FIXED},
+	{.eax = 1, .reg = ECX, .mask = CPUID_1_ECX_MASK, .value = CPUID_1_ECX_FIXED},
+	{.eax = 1, .reg = EDX, .mask = CPUID_1_EDX_MASK, .value = CPUID_1_EDX_FIXED},
+	{.eax = 3, .reg = EAX, .mask = CPUID_3_EAX_MASK},
+	{.eax = 3, .reg = EBX, .mask = CPUID_3_EBX_MASK},
+	{.eax = 3, .reg = ECX, .mask = CPUID_3_ECX_MASK},
+	{.eax = 3, .reg = EDX, .mask = CPUID_3_EDX_MASK},
+	{.eax = 4, .needs_ecx = true, .ecx = 0, .reg = EAX, .mask = CPUID_4_0_EAX_MASK},
+	{.eax = 4, .needs_ecx = true, .ecx = 0, .reg = EDX, .mask = CPUID_4_0_EDX_MASK},
+	{.eax = 4, .needs_ecx = true, .ecx = 1, .reg = EAX, .mask = CPUID_4_1_EAX_MASK},
+	{.eax = 4, .needs_ecx = true, .ecx = 1, .reg = EDX, .mask = CPUID_4_1_EDX_MASK},
+	{.eax = 4, .needs_ecx = true, .ecx = 2, .reg = EAX, .mask = CPUID_4_2_EAX_MASK},
+	{.eax = 4, .needs_ecx = true, .ecx = 2, .reg = EDX, .mask = CPUID_4_2_EDX_MASK},
+	{.eax = 4, .needs_ecx = true, .ecx = 3, .reg = EAX, .mask = CPUID_4_3_EAX_MASK},
+	{.eax = 4, .needs_ecx = true, .ecx = 3, .reg = EDX, .mask = CPUID_4_3_EDX_MASK},
+	{.eax = 4, .needs_ecx = true, .ecx = 4, .reg = EAX, .mask = CPUID_4_4_EAX_MASK},
+	{.eax = 4, .needs_ecx = true, .ecx = 4, .reg = EBX, .mask = CPUID_4_4_EBX_MASK},
+	{.eax = 4, .needs_ecx = true, .ecx = 4, .reg = ECX, .mask = CPUID_4_4_ECX_MASK},
+	{.eax = 4, .needs_ecx = true, .ecx = 4, .reg = EDX, .mask = CPUID_4_4_EDX_MASK},
+	{.eax = 7, .needs_ecx = true, .ecx = 0, .reg = EAX, .mask = CPUID_7_0_EAX_MASK, .value = CPUID_7_0_EAX_FIXED},
+	{.eax = 7, .needs_ecx = true, .ecx = 0, .reg = EBX, .mask = CPUID_7_0_EBX_MASK, .value = CPUID_7_0_EBX_FIXED},
+	{.eax = 7, .needs_ecx = true, .ecx = 0, .reg = ECX, .mask = CPUID_7_0_ECX_MASK, .value = CPUID_7_0_ECX_FIXED},
+	{.eax = 7, .needs_ecx = true, .ecx = 0, .reg = EDX, .mask = CPUID_7_0_EDX_MASK, .value = CPUID_7_0_EDX_FIXED},
+	{.eax = 7, .needs_ecx = true, .ecx = 1, .reg = EAX, .mask = CPUID_7_1_EAX_MASK},
+	{.eax = 7, .needs_ecx = true, .ecx = 1, .reg = EBX, .mask = CPUID_7_1_EBX_MASK},
+	{.eax = 7, .needs_ecx = true, .ecx = 1, .reg = ECX, .mask = CPUID_7_1_ECX_MASK},
+	{.eax = 7, .needs_ecx = true, .ecx = 1, .reg = EDX, .mask = CPUID_7_1_EDX_MASK},
+	{.eax = 0xa, .reg = EBX, .mask = CPUID_a_EBX_MASK},
+	{.eax = 0xa, .reg = EDX, .mask = CPUID_a_EDX_MASK},
+	{.eax = 0xd, .needs_ecx = true, .ecx = 0, .reg = EAX, .mask = CPUID_d_0_EAX_MASK, .value = CPUID_d_0_EAX_FIXED},
+	{.eax = 0xd, .needs_ecx = true, .ecx = 0, .reg = EDX, .mask = CPUID_d_0_EDX_MASK},
+	{.eax = 0xd, .needs_ecx = true, .ecx = 1, .reg = EAX, .mask = CPUID_d_1_EAX_MASK, .value = CPUID_d_1_EAX_FIXED},
+	{.eax = 0xd, .needs_ecx = true, .ecx = 1, .reg = ECX, .mask = CPUID_d_1_ECX_MASK},
+	{.eax = 0xd, .needs_ecx = true, .ecx = 1, .reg = EDX, .mask = CPUID_d_1_EDX_MASK},
+	{.eax = 0x15, .reg = EAX, .mask = CPUID_15_EAX_MASK, .value = CPUID_15_EAX_FIXED},
+	{.eax = 0x15, .reg = ECX, .mask = CPUID_15_ECX_MASK, .value = CPUID_15_ECX_FIXED},
+	{.eax = 0x15, .reg = EDX, .mask = CPUID_15_EDX_MASK},
+	{.eax = 0x19, .reg = ECX, .mask = CPUID_19_ECX_MASK},
+	{.eax = 0x19, .reg = EDX, .mask = CPUID_19_EDX_MASK},
+	{.eax = 0x21, .needs_ecx = true, .ecx = 0, .reg = EAX, .mask = CPUID_21_0_EAX_MASK},
+	{.eax = 0x21, .needs_ecx = true, .ecx = 0, .reg = EBX, .mask = CPUID_21_0_EBX_MASK, .value = CPUID_21_0_EBX_FIXED},
+	{.eax = 0x21, .needs_ecx = true, .ecx = 0, .reg = ECX, .mask = CPUID_21_0_ECX_MASK, .value = CPUID_21_0_ECX_FIXED},
+	{.eax = 0x21, .needs_ecx = true, .ecx = 0, .reg = EDX, .mask = CPUID_21_0_EDX_MASK, .value = CPUID_21_0_EDX_FIXED},
+	{.eax = 0x80000000, .reg = EBX, .mask = CPUID_80000000_EBX_MASK},
+	{.eax = 0x80000000, .reg = ECX, .mask = CPUID_80000000_ECX_MASK},
+	{.eax = 0x80000000, .reg = EDX, .mask = CPUID_80000000_EDX_MASK},
+	{.eax = 0x80000001, .reg = EAX, .mask = CPUID_80000001_EAX_MASK},
+	{.eax = 0x80000001, .reg = EBX, .mask = CPUID_80000001_EBX_MASK},
+	{.eax = 0x80000001, .reg = ECX, .mask = CPUID_80000001_ECX_MASK},
+	{.eax = 0x80000001, .reg = EDX, .mask = CPUID_80000001_EDX_MASK, .value = CPUID_80000001_EDX_FIXED},
+	{.eax = 0x80000008, .reg = EAX, .mask = CPUID_80000008_EAX_MASK, .value = CPUID_80000008_EAX_FIXED},
+	{.eax = 0x80000008, .reg = EBX, .mask = CPUID_80000008_EBX_MASK, .value = CPUID_80000008_EBX_FIXED},
+	{.eax = 0x80000008, .reg = ECX, .mask = CPUID_80000008_ECX_MASK},
+	{.eax = 0x80000008, .reg = EDX, .mask = CPUID_80000008_EDX_MASK},
+};
+
+static void check_cpuid_fixed(CPUIDINFO *ci)
+{
+	struct cpuid c = raw_cpuid(ci->eax, ci->ecx);
+	uint32_t value = 0;
+
+	switch (ci->reg) {
+	case EAX:
+		value = c.a;
+		break;
+	case EBX:
+		value = c.b;
+		break;
+	case ECX:
+		value = c.c;
+		break;
+	case EDX:
+		value = c.d;
+		break;
+	}
+
+	report((value & ci->mask) == ci->value,
+	       "cpuid check failure, eax %x, ecx %x, reg %x, mask %x, expect %x, got %x\n",
+	       ci->eax, ci->ecx, ci->reg, ci->mask, ci->value, value);
+}
+
+CPUIDINFO cpuid_all_zero_info[] = {
+	{.eax = 3},
+	{.eax = 8},
+	{.eax = 0xe},
+	{.eax = 0x11},
+	{.eax = 0x12},
+	{.eax = 0x13},
+	{.eax = 0x20},
+};
+
+static void test_cpuid(void)
+{
+	int i;
+
+	for (i = 0; i < sizeof(cpuid_info)/sizeof(*cpuid_info); i++)
+	{
+		check_cpuid_fixed(cpuid_info + i);
+	}
+
+	/* Some cpuid result are all zero */
+	for (i = 0; i < sizeof(cpuid_all_zero_info)/sizeof(*cpuid_all_zero_info); i++)
+	{
+		CPUIDINFO *ci = cpuid_all_zero_info + i;
+		ci->mask = CPUID_FIXED1;
+
+		for (int j = 0; j < 4; j++) {
+			ci->reg = j;
+			check_cpuid_fixed(cpuid_info + i);
+		}
+	}
+
+	/* Leaf 0xd / Sub-leaves 0x2-0x12 EDX zero */
+	for (i = 2; i <= 0x12; i++) {
+		CPUIDINFO ci = {.eax = 0xd, .needs_ecx = true, .ecx = i, .reg = EDX, .mask = CPUID_FIXED1};
+		check_cpuid_fixed(&ci);
+	}
+}
+
 int main(void)
 {
 	if (!is_tdx_guest()) {
@@ -90,5 +317,6 @@ int main(void)
 
 	test_selfipi_msr();
 	test_single_step();
+	test_cpuid();
 	return report_summary();
 }
