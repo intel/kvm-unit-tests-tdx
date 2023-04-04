@@ -36,11 +36,6 @@ ptl5:
 	. = . + PAGE_SIZE
 .align PAGE_SIZE
 
-.globl stacktop
-	. = . + PAGE_SIZE * MAX_TEST_CPUS
-stacktop:
-.align PAGE_SIZE
-
 .section .init
 .code64
 .text
