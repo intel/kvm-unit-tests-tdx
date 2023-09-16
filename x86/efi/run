@@ -37,6 +37,8 @@ if [ "$EFI_TDX" == "y" ]; then
 	"$TEST_DIR/run" \
 	-bios "$EFI_UEFI" \
 	-object tdx-guest,id=tdx0 \
+	-object memory-backend-ram,id=ram1,size=256M,private=on \
+	-machine memory-backend=ram1 \
 	-machine q35,kernel_irqchip=split,confidential-guest-support=tdx0 \
 	-kernel "$EFI_SRC/$EFI_CASE.efi" \
 	-net none \
