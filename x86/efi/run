@@ -19,12 +19,21 @@ source config.mak
 : "${EFI_SMP:=1}"
 : "${EFI_CASE:=$(basename $1 .efi)}"
 : "${EFI_TDX:=n}"
+: "${TDX_DEBUG:=n}"
 
 if [ ! -f "$EFI_UEFI" ]; then
 	echo "UEFI firmware not found: $EFI_UEFI"
 	echo "Please install the UEFI firmware to this path"
 	echo "Or specify the correct path with the env variable EFI_UEFI"
 	exit 2
+fi
+
+if [ "$TDX_DEBUG" == "y" ]; then
+	debug_prop1="debug=on"
+	debug_prop2="-s -S -monitor pty"
+else
+	debug_prop1=""
+	debug_prop2=""
 fi
 
 # Remove the TEST_CASE from $@
@@ -36,7 +45,7 @@ shift 1
 if [ "$EFI_TDX" == "y" ]; then
 	"$TEST_DIR/run" \
 	-bios "$EFI_UEFI" \
-	-object tdx-guest,id=tdx0 \
+	-object tdx-guest,id=tdx0,${debug_prop1} \
 	-object memory-backend-ram,id=ram1,size=256M,private=on \
 	-machine memory-backend=ram1 \
 	-machine q35,kernel_irqchip=split,confidential-guest-support=tdx0 \
@@ -46,6 +55,7 @@ if [ "$EFI_TDX" == "y" ]; then
 	-m 256 \
 	"$@" \
 	-smp "$EFI_SMP" \
+	${debug_prop2} \
 	-cpu host,pmu=off
 
 	exit $?
