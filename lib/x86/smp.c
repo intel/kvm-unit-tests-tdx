@@ -21,7 +21,6 @@ static volatile ipi_function_type ipi_function;
 static void *volatile ipi_data;
 static volatile int ipi_done;
 static volatile bool ipi_wait;
-static int _cpu_count;
 static atomic_t active_cpus;
 extern u8 rm_trampoline, rm_trampoline_end;
 #if defined(__i386__) || defined(CONFIG_EFI)
@@ -69,6 +68,9 @@ asm (
 
 int cpu_count(void)
 {
+	static int _cpu_count = 0;
+	if (_cpu_count == 0)
+		_cpu_count = fwcfg_get_nb_cpus();
 	return _cpu_count;
 }
 
@@ -258,6 +260,7 @@ void bringup_aps(void)
 {
 	void *rm_trampoline_dst = RM_TRAMPOLINE_ADDR;
 	size_t rm_trampoline_size = (&rm_trampoline_end - &rm_trampoline) + 1;
+	int total_cpus;
 	assert(rm_trampoline_size < PAGE_SIZE);
 
 	asm volatile("cld");
@@ -282,9 +285,9 @@ void bringup_aps(void)
 	/* SIPI */
 	apic_icr_write(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_STARTUP, 0);
 
-	_cpu_count = fwcfg_get_nb_cpus();
+	total_cpus = cpu_count();
 
-	printf("smp: waiting for %d APs\n", _cpu_count - 1);
-	while (_cpu_count != atomic_read(&cpu_online_count))
+	printf("smp: waiting for %d APs\n", total_cpus - 1);
+	while (total_cpus != atomic_read(&cpu_online_count))
 		cpu_relax();
 }
