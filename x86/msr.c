@@ -280,14 +280,15 @@ static void __test_x2apic_msrs(bool x2apic_enabled)
 
 static void test_x2apic_msrs(void)
 {
-	if (!is_tdx_guest())
-		reset_apic();
+	if (is_tdx_guest())
+		goto test_x2apic;
+	reset_apic();
 
 	__test_x2apic_msrs(false);
 
 	if (!enable_x2apic())
 		return;
-
+test_x2apic:
 	__test_x2apic_msrs(true);
 }
 
