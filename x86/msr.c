@@ -233,6 +233,24 @@ static void test_mce_msrs(void)
 	}
 }
 
+static enum x2apic_reg_semantics get_x2apic_reg_semantics2(u32 reg)
+{
+	enum x2apic_reg_semantics ret;
+	ret = get_x2apic_reg_semantics(reg);
+
+	if (is_tdx_guest()) {
+		switch (reg) {
+		case APIC_ARBPRI:
+		case APIC_EOI:
+		case APIC_RRR:
+		case APIC_DFR:
+		case APIC_SELF_IPI:
+			ret |= X2APIC_RO;
+		}
+	}
+	return ret;
+}
+
 static void __test_x2apic_msrs(bool x2apic_enabled)
 {
 	enum x2apic_reg_semantics semantics;
@@ -244,7 +262,7 @@ static void __test_x2apic_msrs(bool x2apic_enabled)
 		snprintf(msr_name, sizeof(msr_name), "x2APIC MSR 0x%x", index);
 
 		if (x2apic_enabled)
-			semantics = get_x2apic_reg_semantics(i);
+			semantics = get_x2apic_reg_semantics2(i);
 		else
 			semantics = X2APIC_INVALID;
 
