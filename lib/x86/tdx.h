@@ -28,6 +28,7 @@
 #define EXIT_REASON_IO_INSTRUCTION      30
 #define EXIT_REASON_MSR_READ            31
 #define EXIT_REASON_MSR_WRITE           32
+#define EXIT_REASON_APIC_WRITE          56
 
 /* TDX Module call Leaf IDs */
 #define TDX_GET_INFO			1

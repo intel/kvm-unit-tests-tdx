@@ -402,6 +402,18 @@ static bool tdx_handle_virtualization_exception(struct ex_regs *regs,
 	case EXIT_REASON_IO_INSTRUCTION:
 		ret = tdx_handle_io(regs, ve->exit_qual);
 		break;
+
+	/* The following guest operations result in an APIC write VM exit
+	 * to the TDX module, and the TDX module injects a APIC Write #VE
+	 * exception back to the guest TD
+	 *   - WRMSR of IA32_X2APIC_SELF_IPI with EAX[7:4] set to 0,
+	 *     i.e.,an interrupt vector value smaller than 16.
+	 *   - Executing SENDUIPI to send a user-level interrupt.
+	 *
+	 * Currently, just ignore it.
+	 */
+	case EXIT_REASON_APIC_WRITE:
+		return true;
 	default:
 		tdx_printf("Unexpected #VE: %ld\n", ve->exit_reason);
 		return false;
