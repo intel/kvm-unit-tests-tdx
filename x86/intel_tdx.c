@@ -45,7 +45,7 @@ static void test_single_step(void)
 	handle_exception(DB_VECTOR, handle_db);
 
 	/*
-	 * cpuid(0xb) and wrmsr(0x1a0) trigger #VE and are then emulated.
+	 * cpuid(0xb) and wrmsr(0x828) trigger #VE and are then emulated.
 	 * Test #DB on these instructions as there is single step
 	 * simulation in #VE handler. This is complement to x86/debug.c
 	 * which test cpuid(0) and in(0x3fd) instruction. In fact,
@@ -64,7 +64,7 @@ static void test_single_step(void)
 		"push %%rax\n\t"
 		"mov $0xb,%%rax\n\t"
 		"cpuid\n\t"
-		"movl $0x1a0,%%ecx\n\t"
+		"movl $0x828,%%ecx\n\t"
 		"rdmsr\n\t"
 		"wrmsr\n\t"
 		"popf\n\t"
