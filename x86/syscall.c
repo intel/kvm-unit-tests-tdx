@@ -106,7 +106,7 @@ int main(int ac, char **av)
 {
     test_syscall_lazy_load();
 
-    if (!no_test_device || !is_intel())
+    if (!no_test_device && !is_intel())
         test_syscall_tf();
     else
         report_skip("syscall TF handling");
