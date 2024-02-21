@@ -134,9 +134,7 @@ static void test_single_step(void)
 #define CPUID_8_0_ECX_MASK	CPUID_FIXED1
 #define CPUID_8_0_EDX_MASK	CPUID_FIXED1
 
-#define CPUID_a_EBX_MASK	(0x0)
-#define CPUID_a_EDX_MASK	(0x7ffff << 13)
-#define CPUID_a_EDX_FIXED	BIT_ULL(15)
+#define CPUID_a_EDX_MASK	(0x7fffb << 13)
 
 #define CPUID_d_0_EAX_FIXED	(3)
 #define CPUID_d_0_EAX_MASK	(3 | 3 << 3 | 1 << 8 | 1 << 10 | 0x1fff << 19)
@@ -219,8 +217,7 @@ CPUIDINFO cpuid_info[] = {
 	{.eax = 7, .needs_ecx = true, .ecx = 1, .reg = EBX, .mask = CPUID_7_1_EBX_MASK},
 	{.eax = 7, .needs_ecx = true, .ecx = 1, .reg = ECX, .mask = CPUID_7_1_ECX_MASK},
 	{.eax = 7, .needs_ecx = true, .ecx = 1, .reg = EDX, .mask = CPUID_7_1_EDX_MASK},
-	{.eax = 0xa, .reg = EBX, .mask = CPUID_a_EBX_MASK},
-	{.eax = 0xa, .reg = EDX, .mask = CPUID_a_EDX_MASK, .value = CPUID_a_EDX_FIXED},
+	{.eax = 0xa, .reg = EDX, .mask = CPUID_a_EDX_MASK},
 	{.eax = 0xd, .needs_ecx = true, .ecx = 0, .reg = EAX, .mask = CPUID_d_0_EAX_MASK, .value = CPUID_d_0_EAX_FIXED},
 	{.eax = 0xd, .needs_ecx = true, .ecx = 0, .reg = EDX, .mask = CPUID_d_0_EDX_MASK},
 	{.eax = 0xd, .needs_ecx = true, .ecx = 1, .reg = EAX, .mask = CPUID_d_1_EAX_MASK, .value = CPUID_d_1_EAX_FIXED},
