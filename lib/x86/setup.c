@@ -172,13 +172,13 @@ void setup_multiboot(struct mbi_bootinfo *bi)
 	initrd_size = mods->end - mods->start;
 }
 
-static void setup_gdt_tss(void)
+static void setup_tss64(void)
 {
 	size_t tss_offset;
 
 	/* 64-bit setup_tss does not use the stacktop argument.  */
 	tss_offset = setup_tss(NULL);
-	load_gdt_tss(tss_offset);
+	ltr(tss_offset);
 }
 
 #ifdef CONFIG_EFI
@@ -349,10 +349,12 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 		return status;
 	}
 
-	setup_gdt_tss();
+	load_gdt();
 	setup_segments64();
 	setup_idt();
 	load_idt();
+	setup_tss64();
+
 	/*
 	 * Load GS.base with the per-vCPU data.  This must be done after
 	 * loading the IDT as reading the APIC ID may #VC when running
@@ -396,9 +398,10 @@ void save_id(void)
 
 void ap_start64(void)
 {
-	setup_gdt_tss();
-	reset_apic();
+	load_gdt();
 	load_idt();
+	setup_tss64();
+	reset_apic();
 	save_id();
 	enable_apic();
 	enable_x2apic();
