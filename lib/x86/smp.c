@@ -296,14 +296,21 @@ bool bringup_aps_acpi(unsigned long start_ip)
 	bool r = true;
 	u32 i;
 
-	_cpu_count = fwcfg_get_nb_cpus();
-
 	/* BSP is already online */
 	set_bit(id_map[0], online_cpus);
+
+	_cpu_count = fwcfg_get_nb_cpus();
+	if (_cpu_count <= 0) {
+		printf("smp: incorrect cpu count from fwcfg:%d abort.\n",
+		       _cpu_count);
+		abort();
+	}
 
 #ifdef CONFIG_EFI
 	smp_stacktop = ((u64) (&stacktop)) - PAGE_SIZE;
 #endif
+	printf("smp: start to bring up %d cpus with acpi mailbox.\n",
+	       _cpu_count - 1);
 
 	for (i = 1; i < _cpu_count; i++) {
 		/*
@@ -324,8 +331,16 @@ bool bringup_aps_acpi(unsigned long start_ip)
 		set_bit(id_map[i], online_cpus);
 	}
 
+	if (!r) {
+		printf("smp: failed to wake up cpu %d apicid 0x%x, abort.\n",
+		       i, id_map[i]);
+		abort();
+	}
+
 	while (atomic_read(&cpu_online_count) != _cpu_count)
 		cpu_relax();
 
+	printf("smp: end to bring up %d cpus with acpi mailbox.\n",
+	       _cpu_count - 1);
 	return r;
 }
