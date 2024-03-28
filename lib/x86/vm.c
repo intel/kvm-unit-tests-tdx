@@ -3,6 +3,7 @@
 #include "vmalloc.h"
 #include "alloc_page.h"
 #include "smp.h"
+#include "tdx.h"
 
 static pteval_t pte_opt_mask;
 static int page_level;
@@ -176,6 +177,7 @@ static void set_additional_vcpu_vmregs(struct vm_vcpu_info *info)
 
 void *setup_mmu(phys_addr_t end_of_memory, void *opt_mask)
 {
+    ulong cr0_val;
     pgd_t *cr3 = alloc_page();
     struct vm_vcpu_info info;
     int i;
@@ -204,7 +206,12 @@ void *setup_mmu(phys_addr_t end_of_memory, void *opt_mask)
 #ifndef __x86_64__
     write_cr4(X86_CR4_PSE);
 #endif
-    write_cr0(X86_CR0_PG | X86_CR0_PE | X86_CR0_WP);
+    cr0_val = X86_CR0_PG | X86_CR0_PE | X86_CR0_WP;
+    /* TDX requests CR0.NE = 1 always for TD guest */
+    if (is_tdx_guest())
+	    cr0_val |= X86_CR0_NE;
+
+    write_cr0(cr0_val);
 
     printf("paging enabled\n");
     printf("cr0 = %lx\n", read_cr0());
