@@ -32,6 +32,7 @@
 #define VE_IS_IO_STRING(e)	((e) & BIT(4))
 
 #define EXIT_REASON_CPUID		10
+#define EXIT_REASON_HLT			12
 #define EXIT_REASON_IO_INSTRUCTION      30
 #define EXIT_REASON_MSR_READ            31
 #define EXIT_REASON_MSR_WRITE           32
@@ -121,6 +122,7 @@ static int ve_instr_len(struct ve_info *ve)
 	case EXIT_REASON_MSR_READ:
 	case EXIT_REASON_MSR_WRITE:
 	case EXIT_REASON_CPUID:
+	case EXIT_REASON_HLT:
 		/* It is safe to use ve->instr_len for #VE due instructions */
 		return ve->instr_len;
 	default:
@@ -310,6 +312,30 @@ static int handle_cpuid(struct ex_regs *regs, struct ve_info *ve)
 	return ve_instr_len(ve);
 }
 
+static int handle_halt(struct ex_regs *regs, struct ve_info *ve)
+{
+	struct tdx_module_args args = {
+		.r10 = TDX_HYPERCALL_STANDARD,
+		.r11 = hcall_func(EXIT_REASON_HLT),
+		/*
+		  r12 = 1: interrupt is blocking
+		  r12 = 0: no interrupt blocking
+		 */
+		.r12 = !(regs->rflags & X86_EFLAGS_IF),
+	};
+
+	/*
+	 * Emulate HLT operation via hypercall. More info about ABI
+	 * can be found in TDX Guest-Host-Communication Interface
+	 * (GHCI), section 3.8 TDG.VP.VMCALL<Instruction.HLT>.
+	 *
+	 */
+	if (__tdx_hypercall(&args))
+		return -EIO;
+
+	return ve_instr_len(ve);
+}
+
 static bool tdx_get_ve_info(struct ve_info *ve)
 {
 	struct tdx_module_args args = {};
@@ -360,6 +386,9 @@ static bool tdx_handle_virt_exception(struct ex_regs *regs,
 		break;
 	case EXIT_REASON_CPUID:
 		insn_len = handle_cpuid(regs, ve);
+		break;
+	case EXIT_REASON_HLT:
+		insn_len = handle_halt(regs, ve);
 		break;
 	default:
 		insn_len = -EIO;
