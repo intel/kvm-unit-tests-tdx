@@ -32,6 +32,8 @@
 #define VE_IS_IO_STRING(e)	((e) & BIT(4))
 
 #define EXIT_REASON_IO_INSTRUCTION      30
+#define EXIT_REASON_MSR_READ            31
+#define EXIT_REASON_MSR_WRITE           32
 
 /*
  * Used by the #VE exception handler to gather the #VE exception
@@ -115,6 +117,8 @@ static int ve_instr_len(struct ve_info *ve)
 {
 	switch (ve->exit_reason) {
 	case EXIT_REASON_IO_INSTRUCTION:
+	case EXIT_REASON_MSR_READ:
+	case EXIT_REASON_MSR_WRITE:
 		/* It is safe to use ve->instr_len for #VE due instructions */
 		return ve->instr_len;
 	default:
@@ -221,6 +225,48 @@ static int handle_io(struct ex_regs *regs, struct ve_info *ve)
 	return ve_instr_len(ve);
 }
 
+static int handle_read_msr(struct ex_regs *regs, struct ve_info *ve)
+{
+	struct tdx_module_args args = {
+	       .r10 = TDX_HYPERCALL_STANDARD,
+	       .r11 = hcall_func(EXIT_REASON_MSR_READ),
+	       .r12 = regs->rcx,
+	};
+
+	/*
+	 * Emulate the MSR read via hypercall. More info about ABI
+	 * can be found in TDX Guest-Host-Communication Interface
+	 * (GHCI), section titled "TDG.VP.VMCALL<Instruction.RDMSR>".
+	 */
+	if (__tdx_hypercall(&args))
+		return -EIO;
+
+	regs->rax = lower_32_bits(args.r11);
+	regs->rdx = upper_32_bits(args.r11);
+	return ve_instr_len(ve);
+}
+
+static int handle_write_msr(struct ex_regs *regs, struct ve_info *ve)
+{
+	struct tdx_module_args args = {
+		.r10 = TDX_HYPERCALL_STANDARD,
+		.r11 = hcall_func(EXIT_REASON_MSR_WRITE),
+		.r12 = regs->rcx,
+		.r13 = (u64)regs->rdx << 32 | regs->rax,
+	};
+
+	/*
+	 * Emulate the MSR write via hypercall. More info about ABI
+	 * can be found in TDX Guest-Host-Communication Interface
+	 * (GHCI) section titled "TDG.VP.VMCALL<Instruction.WRMSR>".
+	 */
+	if (__tdx_hypercall(&args))
+		return -EIO;
+
+	return ve_instr_len(ve);
+}
+
+
 static bool tdx_get_ve_info(struct ve_info *ve)
 {
 	struct tdx_module_args args = {};
@@ -263,11 +309,18 @@ static bool tdx_handle_virt_exception(struct ex_regs *regs,
 	case EXIT_REASON_IO_INSTRUCTION:
 		insn_len = handle_io(regs, ve);
 		break;
+	case EXIT_REASON_MSR_READ:
+		insn_len = handle_read_msr(regs, ve);
+		break;
+	case EXIT_REASON_MSR_WRITE:
+		insn_len = handle_write_msr(regs, ve);
+		break;
 	default:
 		insn_len = -EIO;
 		printf("WARNING: Unexpected #VE: %ld\n", ve->exit_reason);
 		return false;
 	}
+
 	if (insn_len < 0)
 		return false;
 
