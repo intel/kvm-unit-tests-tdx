@@ -31,6 +31,7 @@
 #define VE_GET_PORT_NUM(e)	((e) >> 16)
 #define VE_IS_IO_STRING(e)	((e) & BIT(4))
 
+#define EXIT_REASON_CPUID		10
 #define EXIT_REASON_IO_INSTRUCTION      30
 #define EXIT_REASON_MSR_READ            31
 #define EXIT_REASON_MSR_WRITE           32
@@ -119,6 +120,7 @@ static int ve_instr_len(struct ve_info *ve)
 	case EXIT_REASON_IO_INSTRUCTION:
 	case EXIT_REASON_MSR_READ:
 	case EXIT_REASON_MSR_WRITE:
+	case EXIT_REASON_CPUID:
 		/* It is safe to use ve->instr_len for #VE due instructions */
 		return ve->instr_len;
 	default:
@@ -266,6 +268,47 @@ static int handle_write_msr(struct ex_regs *regs, struct ve_info *ve)
 	return ve_instr_len(ve);
 }
 
+static int handle_cpuid(struct ex_regs *regs, struct ve_info *ve)
+{
+	struct tdx_module_args args = {
+		.r10 = TDX_HYPERCALL_STANDARD,
+		.r11 = hcall_func(EXIT_REASON_CPUID),
+		.r12 = regs->rax,
+		.r13 = regs->rcx,
+	};
+
+	/*
+	 * Only allow VMM to control range reserved for hypervisor
+	 * communication.
+	 *
+	 * Return all-zeros for any CPUID outside the range. It matches CPU
+	 * behaviour for non-supported leaf.
+	 */
+	if (regs->rax < 0x40000000 || regs->rax > 0x4FFFFFFF) {
+		regs->rax = regs->rbx = regs->rcx = regs->rdx = 0;
+		return ve_instr_len(ve);
+	}
+
+	/*
+	 * Emulate the CPUID instruction via a hypercall. More info about
+	 * ABI can be found in TDX Guest-Host-Communication Interface
+	 * (GHCI), section titled "VP.VMCALL<Instruction.CPUID>".
+	 */
+	if (__tdx_hypercall(&args))
+		return -EIO;
+
+	/*
+	 * As per TDX GHCI CPUID ABI, r12-r15 registers contain contents of
+	 * EAX, EBX, ECX, EDX registers after the CPUID instruction execution.
+	 * So copy the register contents back to pt_regs.
+	 */
+	regs->rax = args.r12;
+	regs->rbx = args.r13;
+	regs->rcx = args.r14;
+	regs->rdx = args.r15;
+
+	return ve_instr_len(ve);
+}
 
 static bool tdx_get_ve_info(struct ve_info *ve)
 {
@@ -314,6 +357,9 @@ static bool tdx_handle_virt_exception(struct ex_regs *regs,
 		break;
 	case EXIT_REASON_MSR_WRITE:
 		insn_len = handle_write_msr(regs, ve);
+		break;
+	case EXIT_REASON_CPUID:
+		insn_len = handle_cpuid(regs, ve);
 		break;
 	default:
 		insn_len = -EIO;
