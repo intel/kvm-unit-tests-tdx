@@ -1,5 +1,6 @@
 #include "libcflat.h"
 #include "processor.h"
+#include "tdx.h"
 
 static void test_wrtsc(u64 t1)
 {
@@ -8,6 +9,12 @@ static void test_wrtsc(u64 t1)
 	wrtsc(t1);
 	t2 = rdtsc();
 	printf("rdtsc after wrtsc(%" PRId64 "): %" PRId64 "\n", t1, t2);
+}
+
+static void test_rdtsc(void)
+{
+	u64 t = rdtsc();
+	printf("rdtsc return: %" PRId64 "\n", t);
 }
 
 static void test_rdtscp(u64 aux)
@@ -36,8 +43,17 @@ int main(void)
 	t2 = rdtsc();
 	printf("rdtsc latency %u\n", (unsigned)(t2 - t1));
 
-	test_wrtsc(0);
-	test_wrtsc(100000000000ull);
+	/*
+	  write to TSC msr is not supported by TDX and VMM doesn't
+	  support it yet. so only testing the rdtsc instead of
+	  writing tsc.
+	 */
+	if (is_tdx_guest())
+		test_rdtsc();
+	else {
+		test_wrtsc(0);
+		test_wrtsc(100000000000ull);
+	}
 
 	if (this_cpu_has(X86_FEATURE_RDTSCP)) {
 		test_rdtscp(0);
