@@ -310,9 +310,11 @@ void setup_idt(void)
 	for (i = 0; i < 32; i++) {
 		if (!idt_handlers[i])
 			continue;
-
                 set_idt_entry(i, idt_handlers[i], 0);
-                handle_exception(i, check_exception_table);
+
+		if (exception_handlers[i])
+			continue;
+		handle_exception(i, check_exception_table);
 	}
 }
 
