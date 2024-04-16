@@ -9,6 +9,7 @@
 /*
  * This test allows two modes:
  * 1. Default: the `msr_info' array contains the default test configurations
+ *		the "skip" has highest priority, the element is skipped if it's true.
  * 2. Custom: by providing command line arguments it is possible to test any MSR and value
  *	Parameters order:
  *		1. msr index as a base 16 number
@@ -18,6 +19,9 @@
 struct msr_info {
 	int index;
 	bool is_64bit_only;
+	bool skip;
+	bool expect_read_fail;
+	bool expect_write_fail;
 	const char *name;
 	unsigned long long value;
 	unsigned long long keep;
@@ -26,6 +30,7 @@ struct msr_info {
 
 #define addr_64 0x0000123456789abcULL
 #define addr_ul (unsigned long)addr_64
+#define value_ignore 0x0000123456789abdULL
 
 #define MSR_TEST(msr, val, ro)	\
 	{ .index = msr, .name = #msr, .value = val, .is_64bit_only = false, .keep = ro }
@@ -94,6 +99,17 @@ static void test_wrmsr(u32 msr, const char *name, unsigned long long val)
 	       name, val, vector);
 }
 
+static void test_rdmsr(u32 msr, const char *name, unsigned long long val)
+{
+	uint64_t _val;
+	unsigned char vector = rdmsr_safe(msr, &_val);
+	bool val_match = (val == value_ignore) ? true : _val == val;
+
+	report(!vector && val_match,
+	       "Expected success on RDMSR(%s, 0x%llx), value matched",
+	       name, val);
+}
+
 static void test_wrmsr_fault(u32 msr, const char *name, unsigned long long val)
 {
 	unsigned char vector = wrmsr_safe(msr, val);
@@ -114,8 +130,24 @@ static void test_rdmsr_fault(u32 msr, const char *name)
 
 static void test_msr(struct msr_info *msr, bool is_64bit_host)
 {
+	if (msr->skip) {
+		printf("Skip %s on test_msr().\n", msr->name);
+		return;
+	}
+
 	if (is_64bit_host || !msr->is_64bit_only) {
-		__test_msr_rw(msr->index, msr->name, msr->value, msr->keep);
+		if (msr->expect_write_fail || msr->expect_read_fail) {
+			if (msr->expect_write_fail)
+				test_wrmsr_fault(msr->index, msr->name, msr->value);
+			else
+				test_wrmsr(msr->index, msr->name, msr->value);
+
+			if (msr->expect_read_fail)
+				test_rdmsr_fault(msr->index, msr->name);
+			else
+				test_rdmsr(msr->index, msr->name, msr->value);
+		} else
+			__test_msr_rw(msr->index, msr->name, msr->value, msr->keep);
 
 		/*
 		 * The 64-bit only MSRs that take an address always perform
@@ -142,6 +174,14 @@ static void test_custom_msr(int ac, char **av)
 		.name = msr_name,
 		.value = strtoull(av[2], NULL, 0x10)
 	};
+
+	if (ac >= 4)
+		msr.skip = strtol(av[3], NULL, 0x10);
+	if (ac >= 5)
+		msr.expect_read_fail = strtol(av[4], NULL, 0x10);
+	if (ac >= 6)
+		msr.expect_write_fail = strtol(av[5], NULL, 0x10);
+
 	test_msr(&msr, is_64bit_host);
 }
 
@@ -312,7 +352,7 @@ int main(int ac, char **av)
 	 * If the user provided an MSR+value, test exactly that and skip all
 	 * built-in testcases.
 	 */
-	if (ac == 3) {
+	if (ac >= 3) {
 		test_custom_msr(ac, av);
 	} else {
 		test_misc_msrs();
