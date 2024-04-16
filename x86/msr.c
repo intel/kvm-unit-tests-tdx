@@ -4,6 +4,7 @@
 #include "apic.h"
 #include "processor.h"
 #include "msr.h"
+#include <x86/tdx.h>
 #include <stdlib.h>
 
 /*
@@ -113,9 +114,15 @@ static void test_rdmsr(u32 msr, const char *name, unsigned long long val)
 static void test_wrmsr_fault(u32 msr, const char *name, unsigned long long val)
 {
 	unsigned char vector = wrmsr_safe(msr, val);
+	bool pass = false;
 
-	report(vector == GP_VECTOR,
-	       "Expected #GP on WRMSR(%s, 0x%llx), got vector %d",
+	if (vector == GP_VECTOR)
+		pass = true;
+	if (is_tdx_guest() && vector == VE_VECTOR)
+		pass = true;
+
+	report(pass,
+	       "Expected #GP/#VE on WRMSR(%s, 0x%llx), got vector %d",
 	       name, val, vector);
 }
 
@@ -185,10 +192,32 @@ static void test_custom_msr(int ac, char **av)
 	test_msr(&msr, is_64bit_host);
 }
 
+static void update_misc_msrs_for_td_guest(void)
+{
+	if (!is_tdx_guest())
+		return;
+
+	for (int i = 0 ; i < ARRAY_SIZE(msr_info); i++) {
+		switch(msr_info[i].index) {
+		case MSR_IA32_MISC_ENABLE:
+			msr_info[i].expect_write_fail = true;
+			msr_info[i].value = value_ignore;
+			break;
+		case MSR_CSTAR:
+			msr_info[i].skip = true;
+			break;
+		default:
+			;
+		}
+	}
+}
+
 static void test_misc_msrs(void)
 {
 	bool is_64bit_host = this_cpu_has(X86_FEATURE_LM);
 	int i;
+
+	update_misc_msrs_for_td_guest();
 
 	for (i = 0 ; i < ARRAY_SIZE(msr_info); i++)
 		test_msr(&msr_info[i], is_64bit_host);
