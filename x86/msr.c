@@ -130,8 +130,14 @@ static void test_rdmsr_fault(u32 msr, const char *name)
 {
 	uint64_t ignored;
 	unsigned char vector = rdmsr_safe(msr, &ignored);
+	bool pass = false;
 
-	report(vector == GP_VECTOR,
+	if (vector == GP_VECTOR)
+		pass = true;
+	if (is_tdx_guest() && vector == VE_VECTOR)
+		pass = true;
+
+	report(pass,
 	       "Expected #GP on RDMSR(%s), got vector %d", name, vector);
 }
 
