@@ -105,6 +105,250 @@ static void test_single_step(void)
 	printf("End single step test.\n");
 }
 
+#define CPUID_FIXED0 (0x0)
+#define CPUID_FIXED1 (0xffffffff)
+
+#define CPUID_0_EAX_FIXED	(0x23)
+#define CPUID_0_EAX_MASK	(0xffffffff)
+
+#define CPUID_1_EAX_MASK	(0x3 << 14 | 0xf << 28)
+#define CPUID_1_EBX_FIXED	(0x8 << 8)
+#define CPUID_1_EBX_MASK	(0xff | 0xff << 8)
+#define CPUID_1_ECX_FIXED	(7 | 1 << 4 | 1 << 9  | 1 << 13 | 1 << 15 | 1 << 17 | 0xf << 19 | 1 << 23 | 3 << 25 | 3 << 30)
+#define CPUID_1_ECX_MASK	(7 | 7 << 4 | 1 << 9  | 1 << 13 | 7 << 15 | 0xf << 19 | 1 << 23 | 3 << 25 | 3 << 30)
+#define CPUID_1_EDX_FIXED	(0x3ff | 0x3f << 11 | 5 << 19 | 0xf << 23)
+#define CPUID_1_EDX_MASK	(0xffff | 3 << 16 | 7 << 19 | 0xf << 23 |1 << 30)
+
+#define CPUID_3_EAX_MASK	CPUID_FIXED1
+#define CPUID_3_EBX_MASK	CPUID_FIXED1
+#define CPUID_3_ECX_MASK	CPUID_FIXED1
+#define CPUID_3_EDX_MASK	CPUID_FIXED1
+
+
+#define CPUID_4_0_EAX_MASK	(0xf << 10)
+#define CPUID_4_0_EDX_MASK	(1 << 2)
+#define CPUID_4_1_EAX_MASK	CPUID_4_0_EAX_MASK
+#define CPUID_4_1_EDX_MASK	CPUID_4_0_EDX_MASK
+#define CPUID_4_2_EAX_MASK	CPUID_4_0_EAX_MASK
+#define CPUID_4_2_EDX_MASK	CPUID_4_0_EDX_MASK
+#define CPUID_4_3_EAX_MASK	CPUID_4_0_EAX_MASK
+#define CPUID_4_3_EDX_MASK	(0xfffffff8)
+#define CPUID_4_4_EAX_MASK	CPUID_FIXED1
+#define CPUID_4_4_EBX_MASK	CPUID_FIXED1
+#define CPUID_4_4_ECX_MASK	CPUID_FIXED1
+#define CPUID_4_4_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_7_0_EAX_FIXED	(2)
+#define CPUID_7_0_EAX_MASK	CPUID_FIXED1
+#define CPUID_7_0_EBX_FIXED	(1 | 3 << 6 | 1 << 10 | 1 << 13 | 5 << 18 | 3 << 23 | 1 << 29)
+#define CPUID_7_0_EBX_MASK	(7 | 3 << 6 | 1 << 10 | 3 << 13 | 5 << 18 | 7 << 22 | 1 << 29)
+#define CPUID_7_0_ECX_FIXED	(1 << 24 | 3 << 27)
+#define CPUID_7_0_ECX_MASK	(1 << 15 | 0x1f << 17 | 1 << 24 | 0x1f << 26 )
+#define CPUID_7_0_EDX_FIXED	(1 << 10 | 0x3f << 26)
+#define CPUID_7_0_EDX_MASK	(3 | 3 << 6 | 0x1f << 9 | 1 << 17 | 1 << 21 | 0x3f << 26)
+#define CPUID_7_1_EAX_MASK	(0xf | 5 << 7 | 0x3ff << 16 | 0x1f << 27)
+#define CPUID_7_1_EBX_MASK	CPUID_FIXED1
+#define CPUID_7_1_ECX_MASK	CPUID_FIXED1
+#define CPUID_7_1_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_8_0_EAX_MASK	CPUID_FIXED1
+#define CPUID_8_0_EBX_MASK	CPUID_FIXED1
+#define CPUID_8_0_ECX_MASK	CPUID_FIXED1
+#define CPUID_8_0_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_a_EBX_MASK	(0x0)
+#define CPUID_a_EDX_MASK	(0x7ffff << 13)
+#define CPUID_a_EDX_FIXED	BIT_ULL(15)
+
+#define CPUID_d_0_EAX_FIXED	(3)
+#define CPUID_d_0_EAX_MASK	(3 | 3 << 3 | 1 << 8 | 1 << 10 | 0x1fff << 19)
+#define CPUID_d_0_EDX_MASK	CPUID_FIXED1
+#define CPUID_d_1_EAX_FIXED	(0xf)
+#define CPUID_d_1_EAX_MASK	(0xf | 0x7ffffff << 5)
+#define CPUID_d_1_ECX_MASK	(0xff | 3 << 9 | 1 << 13 | 0xffff << 16)
+#define CPUID_d_1_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_15_EAX_FIXED	(1)
+#define CPUID_15_EAX_MASK	CPUID_FIXED1
+#define CPUID_15_ECX_FIXED	0x17d7840
+#define CPUID_15_ECX_MASK	CPUID_FIXED1
+#define CPUID_15_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_19_ECX_MASK	(0xfffffffe)
+#define CPUID_19_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_21_0_EAX_MASK	CPUID_FIXED1
+#define CPUID_21_0_EBX_FIXED	0x65746e49
+#define CPUID_21_0_EBX_MASK	CPUID_FIXED1
+#define CPUID_21_0_ECX_FIXED	0x20202020
+#define CPUID_21_0_ECX_MASK	CPUID_FIXED1
+#define CPUID_21_0_EDX_FIXED	0x5844546c
+#define CPUID_21_0_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_80000000_EBX_MASK	CPUID_FIXED1
+#define CPUID_80000000_ECX_MASK	CPUID_FIXED1
+#define CPUID_80000000_EDX_MASK	CPUID_FIXED1
+
+#define CPUID_80000001_EAX_MASK	CPUID_FIXED1
+#define CPUID_80000001_EBX_MASK	CPUID_FIXED1
+#define CPUID_80000001_ECX_MASK	CPUID_FIXED1
+#define CPUID_80000001_ECX_FIXED (1 | 1 << 5 | 1<< 8)
+#define CPUID_80000001_EDX_FIXED (1 << 20 | 3 << 26 | 1 << 29)
+#define CPUID_80000001_EDX_MASK	(0xfffff7ff)
+
+#define CPUID_80000008_EAX_FIXED (0x3934)
+#define CPUID_80000008_EAX_MASK CPUID_FIXED1
+#define CPUID_80000008_EBX_MASK	(0xfffffdff)
+#define CPUID_80000008_ECX_MASK	CPUID_FIXED1
+#define CPUID_80000008_EDX_MASK	CPUID_FIXED1
+
+struct cpuid_info {
+	int eax;	/* Input EAX for CPUID */
+	int ecx;	/* Input ECX value for CPUID */
+	int reg;	/* output register (R_* constant) */
+	uint32_t mask;	/* The virtual bit value is fixed 0 */
+	uint32_t value;	/* The virtual bit value is fixed 1 */
+};
+
+struct cpuid_info cpuid_info[] = {
+	{ .eax = 0, .reg = EAX, .mask = CPUID_0_EAX_MASK, .value = CPUID_0_EAX_FIXED },
+	{ .eax = 1, .reg = EAX, .mask = CPUID_1_EAX_MASK },
+	{ .eax = 1, .reg = EBX, .mask = CPUID_1_EBX_MASK, .value = CPUID_1_EBX_FIXED },
+	{ .eax = 1, .reg = ECX, .mask = CPUID_1_ECX_MASK, .value = CPUID_1_ECX_FIXED },
+	{ .eax = 1, .reg = EDX, .mask = CPUID_1_EDX_MASK, .value = CPUID_1_EDX_FIXED },
+	{ .eax = 3, .reg = EAX, .mask = CPUID_3_EAX_MASK },
+	{ .eax = 3, .reg = EBX, .mask = CPUID_3_EBX_MASK },
+	{ .eax = 3, .reg = ECX, .mask = CPUID_3_ECX_MASK },
+	{ .eax = 3, .reg = EDX, .mask = CPUID_3_EDX_MASK },
+	{ .eax = 4, .reg = EAX, .mask = CPUID_4_0_EAX_MASK },
+	{ .eax = 4, .ecx = 0, .reg = EDX, .mask = CPUID_4_0_EDX_MASK },
+	{ .eax = 4, .ecx = 1, .reg = EAX, .mask = CPUID_4_1_EAX_MASK },
+	{ .eax = 4, .ecx = 1, .reg = EDX, .mask = CPUID_4_1_EDX_MASK },
+	{ .eax = 4, .ecx = 2, .reg = EAX, .mask = CPUID_4_2_EAX_MASK },
+	{ .eax = 4, .ecx = 2, .reg = EDX, .mask = CPUID_4_2_EDX_MASK },
+	{ .eax = 4, .ecx = 3, .reg = EAX, .mask = CPUID_4_3_EAX_MASK },
+	{ .eax = 4, .ecx = 3, .reg = EDX, .mask = CPUID_4_3_EDX_MASK },
+	{ .eax = 4, .ecx = 4, .reg = EAX, .mask = CPUID_4_4_EAX_MASK },
+	{ .eax = 4, .ecx = 4, .reg = EBX, .mask = CPUID_4_4_EBX_MASK },
+	{ .eax = 4, .ecx = 4, .reg = ECX, .mask = CPUID_4_4_ECX_MASK },
+	{ .eax = 4, .ecx = 4, .reg = EDX, .mask = CPUID_4_4_EDX_MASK },
+	{ .eax = 7, .ecx = 0, .reg = EAX, .mask = CPUID_7_0_EAX_MASK, .value = CPUID_7_0_EAX_FIXED },
+	{ .eax = 7, .ecx = 0, .reg = EBX, .mask = CPUID_7_0_EBX_MASK, .value = CPUID_7_0_EBX_FIXED },
+	{ .eax = 7, .ecx = 0, .reg = ECX, .mask = CPUID_7_0_ECX_MASK, .value = CPUID_7_0_ECX_FIXED },
+	{ .eax = 7, .ecx = 0, .reg = EDX, .mask = CPUID_7_0_EDX_MASK, .value = CPUID_7_0_EDX_FIXED },
+	{ .eax = 7, .ecx = 1, .reg = EAX, .mask = CPUID_7_1_EAX_MASK },
+	{ .eax = 7, .ecx = 1, .reg = EBX, .mask = CPUID_7_1_EBX_MASK },
+	{ .eax = 7, .ecx = 1, .reg = ECX, .mask = CPUID_7_1_ECX_MASK },
+	{ .eax = 7, .ecx = 1, .reg = EDX, .mask = CPUID_7_1_EDX_MASK },
+	{ .eax = 0xa, .reg = EBX, .mask = CPUID_a_EBX_MASK},
+	{ .eax = 0xa, .reg = EDX, .mask = CPUID_a_EDX_MASK, .value = CPUID_a_EDX_FIXED},
+	{ .eax = 0xd, .ecx = 0, .reg = EAX, .mask = CPUID_d_0_EAX_MASK, .value = CPUID_d_0_EAX_FIXED },
+	{ .eax = 0xd, .ecx = 0, .reg = EDX, .mask = CPUID_d_0_EDX_MASK },
+	{ .eax = 0xd, .ecx = 1, .reg = EAX, .mask = CPUID_d_1_EAX_MASK, .value = CPUID_d_1_EAX_FIXED },
+	{ .eax = 0xd, .ecx = 1, .reg = ECX, .mask = CPUID_d_1_ECX_MASK },
+	{ .eax = 0xd, .ecx = 1, .reg = EDX, .mask = CPUID_d_1_EDX_MASK },
+	{ .eax = 0x15, .reg = EAX, .mask = CPUID_15_EAX_MASK, .value = CPUID_15_EAX_FIXED },
+	{ .eax = 0x15, .reg = ECX, .mask = CPUID_15_ECX_MASK, .value = CPUID_15_ECX_FIXED },
+	{ .eax = 0x15, .reg = EDX, .mask = CPUID_15_EDX_MASK },
+	{ .eax = 0x19, .reg = ECX, .mask = CPUID_19_ECX_MASK },
+	{ .eax = 0x19, .reg = EDX, .mask = CPUID_19_EDX_MASK },
+	{ .eax = 0x21, .ecx = 0, .reg = EAX, .mask = CPUID_21_0_EAX_MASK },
+	{ .eax = 0x21, .ecx = 0, .reg = EBX, .mask = CPUID_21_0_EBX_MASK, .value = CPUID_21_0_EBX_FIXED },
+	{ .eax = 0x21, .ecx = 0, .reg = ECX, .mask = CPUID_21_0_ECX_MASK, .value = CPUID_21_0_ECX_FIXED },
+	{ .eax = 0x21, .ecx = 0, .reg = EDX, .mask = CPUID_21_0_EDX_MASK, .value = CPUID_21_0_EDX_FIXED },
+	{ .eax = 0x80000000, .reg = EBX, .mask = CPUID_80000000_EBX_MASK },
+	{ .eax = 0x80000000, .reg = ECX, .mask = CPUID_80000000_ECX_MASK },
+	{ .eax = 0x80000000, .reg = EDX, .mask = CPUID_80000000_EDX_MASK },
+	{ .eax = 0x80000001, .reg = EAX, .mask = CPUID_80000001_EAX_MASK },
+	{ .eax = 0x80000001, .reg = EBX, .mask = CPUID_80000001_EBX_MASK },
+	{ .eax = 0x80000001, .reg = ECX, .mask = CPUID_80000001_ECX_MASK, .value = CPUID_80000001_ECX_FIXED },
+	{ .eax = 0x80000001, .reg = EDX, .mask = CPUID_80000001_EDX_MASK, .value = CPUID_80000001_EDX_FIXED },
+	{ .eax = 0x80000008, .reg = EAX, .mask = CPUID_80000008_EAX_MASK, .value = CPUID_80000008_EAX_FIXED },
+	{ .eax = 0x80000008, .reg = EBX, .mask = CPUID_80000008_EBX_MASK },
+	{ .eax = 0x80000008, .reg = ECX, .mask = CPUID_80000008_ECX_MASK },
+	{ .eax = 0x80000008, .reg = EDX, .mask = CPUID_80000008_EDX_MASK },
+};
+
+struct cpuid_info cpuid_all_zero_info[] = {
+	{.eax = 3},
+	{.eax = 8},
+	{.eax = 0xe},
+	{.eax = 0x11},
+	{.eax = 0x12},
+	{.eax = 0x13},
+	{.eax = 0x20},
+};
+
+static const char* reg_to_str(enum cpuid_output_regs reg)
+{
+	switch (reg) {
+	case EAX:
+		return "EAX";
+	case EBX:
+		return "EBX";
+	case ECX:
+		return "ECX";
+	case EDX:
+		return "EDX";
+	default:
+		return "Unknown";
+	}
+}
+
+static void check_cpuid_fixed(struct cpuid_info *ci)
+{
+	struct cpuid c = raw_cpuid(ci->eax, ci->ecx);
+	uint32_t value = 0;
+
+	switch (ci->reg) {
+	case EAX:
+		value = c.a;
+		break;
+	case EBX:
+		value = c.b;
+		break;
+	case ECX:
+		value = c.c;
+		break;
+	case EDX:
+		value = c.d;
+		break;
+	}
+
+	value &= ci->mask;
+	report(value == ci->value,
+	       "cpuid check: eax 0x%x, ecx 0x%x, reg %s, mask 0x%x, expect 0x%x, got 0x%x",
+	       ci->eax, ci->ecx, reg_to_str(ci->reg),
+	       ci->mask, ci->value, value);
+}
+
+static void test_cpuid(void)
+{
+	int i;
+	printf("\nStart CPUID checking.\n");
+	for (i = 0; i < ARRAY_SIZE(cpuid_info); i++) {
+		check_cpuid_fixed(cpuid_info + i);
+	}
+
+	/* Some cpuid result are all zero */
+	for (i = 0; i < ARRAY_SIZE(cpuid_all_zero_info); i++) {
+		struct cpuid_info *ci = cpuid_all_zero_info + i;
+		ci->mask = CPUID_FIXED1;
+
+		for (int j = 0; j < 4; j++) {
+			ci->reg = j;
+			check_cpuid_fixed(ci);
+		}
+	}
+
+	/* Leaf 0xd / Sub-leaves 0x2-0x12 EDX zero */
+	for (i = 2; i <= 0x12; i++) {
+		struct cpuid_info ci = {.eax = 0xd, .ecx = i, .reg = EDX, .mask = CPUID_FIXED1};
+		check_cpuid_fixed(&ci);
+	}
+	printf("End CPUID checking.\n");
+}
+
 int main(void)
 {
 	if (!is_tdx_guest()) {
@@ -114,5 +358,6 @@ int main(void)
 
 	test_selfipi_msr();
 	test_single_step();
+	test_cpuid();
 	return report_summary();
 }
