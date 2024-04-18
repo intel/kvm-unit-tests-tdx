@@ -24,4 +24,5 @@
 #define smp_rmb()	dmb(ishld)
 #define smp_wmb()	dmb(ishst)
 
+#include "asm-generic/barrier.h"
 #endif /* _ASMARM64_BARRIER_H_ */
