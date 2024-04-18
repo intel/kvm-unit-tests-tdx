@@ -32,4 +32,12 @@
 #define cpu_relax()	asm volatile ("":::"memory")
 #endif
 
+#ifndef smp_store_release
+#define smp_store_release(p, val)	\
+	do {				\
+		smp_wmb();		\
+		WRITE_ONCE(*p, val);	\
+	} while (0)
+#endif
+
 #endif /* _ASM_GENERIC_BARRIER_H_ */
