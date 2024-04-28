@@ -480,6 +480,13 @@ static void test_apic_timer_one_shot(void)
 	uint64_t tsc1, tsc2;
 	static const uint32_t interval = 0x10000;
 
+	/*
+	 * clear TMICT to disable any enabled but masked local timer.
+	 * Otherwise timer interrupt may occur after lvtt_handler() is
+	 * set as handler and **before** TDCR or TIMCT is set to new value,
+	 * lead this test failure.
+	 */
+	apic_write(APIC_TMICT, 0);
 #define APIC_LVT_TIMER_VECTOR    (0xee)
 
 	handle_irq(APIC_LVT_TIMER_VECTOR, lvtt_handler);
