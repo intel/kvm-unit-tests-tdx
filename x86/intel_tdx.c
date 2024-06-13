@@ -148,7 +148,7 @@ static void test_single_step(void)
 #define CPUID_7_1_EAX_MASK	0xfbdf028f
 #define CPUID_7_1_EBX_MASK	CPUID_FIXED1
 #define CPUID_7_1_ECX_MASK	CPUID_FIXED1
-#define CPUID_7_1_EDX_MASK	CPUID_FIXED1
+#define CPUID_7_1_EDX_MASK	0xffffbfff
 
 #define CPUID_8_0_EAX_MASK	CPUID_FIXED1
 #define CPUID_8_0_EBX_MASK	CPUID_FIXED1
