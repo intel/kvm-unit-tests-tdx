@@ -24,5 +24,29 @@
 #define smp_rmb()	dmb(ishld)
 #define smp_wmb()	dmb(ishst)
 
+#define smp_store_release(p, v)                                         \
+	do {								\
+	        switch (sizeof(*p)) {					\
+	        case 1:							\
+	                asm volatile ("stlrb %w1, %0"			\
+				      : "=Q" (*p) : "r" (v) : "memory"); \
+			break;						\
+		case 2:							\
+			asm volatile ("stlrh %w1, %0"			\
+				      : "=Q" (*p) : "r" (v) : "memory"); \
+			break;						\
+		case 4:							\
+			asm volatile ("stlr %w1, %0"			\
+				      : "=Q" (*p) : "r" (v) : "memory"); \
+			break;						\
+		case 8:							\
+			asm volatile ("stlr %1, %0"			\
+				      : "=Q" (*p) : "r" (v) : "memory"); \
+			break;						\
+		default:						\
+			report_abort("Invalid smp_store_release() operand size"); \
+			}						\
+	 } while (0)
+
 #include "asm-generic/barrier.h"
 #endif /* _ASMARM64_BARRIER_H_ */
