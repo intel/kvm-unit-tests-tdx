@@ -7,6 +7,7 @@
 #include "msr.h"
 #include "atomic.h"
 #include "fwcfg.h"
+#include "tdx.h"
 
 #define MAX_TPR			0xf
 
@@ -477,8 +478,20 @@ static void lvtt_handler(isr_regs_t *regs)
 
 static void test_apic_timer_one_shot(void)
 {
-	uint64_t tsc1, tsc2;
 	static const uint32_t interval = 0x10000;
+	uint64_t measured_apic_freq, tsc2, tsc1;
+	uint32_t tsc_freq = 0, apic_freq = 0;
+	struct cpuid cpuid_tsc = {};
+
+	/*
+	 * If available, use CPUID 0x15 to obtain
+	 * TSC and APIC frequency for accurate testing.
+	 */
+	cpuid_tsc = raw_cpuid(0x15, 0);
+	if (cpuid_tsc.b > 0 && cpuid_tsc.a > 0)
+		tsc_freq = cpuid_tsc.c * cpuid_tsc.b / cpuid_tsc.a;
+	if (cpuid_tsc.c > 0)
+		apic_freq = cpuid_tsc.c;
 
 	/*
 	 * clear TMICT to disable any enabled but masked local timer.
@@ -503,15 +516,23 @@ static void test_apic_timer_one_shot(void)
 	while (!lvtt_counter);
 	tsc2 = rdtsc();
 
-	/*
-	 * For LVT Timer clock, SDM vol 3 10.5.4 says it should be
-	 * derived from processor's bus clock (IIUC which is the same
-	 * as TSC), however QEMU seems to be using nanosecond. In all
-	 * cases, the following should satisfy on all modern
-	 * processors.
-	 */
-	report((lvtt_counter == 1) && (tsc2 - tsc1 >= interval),
-	       "APIC LVT timer one shot");
+	if (tsc_freq && apic_freq) {
+		measured_apic_freq = interval * (tsc_freq / (tsc2 - tsc1));
+		report((lvtt_counter == 1) &&
+		       (measured_apic_freq < apic_freq * 105 / 100) &&
+		       (measured_apic_freq > apic_freq * 95 / 100),
+		       "APIC LVT timer one shot");
+	} else {
+		/*
+		 * For LVT Timer clock, SDM vol 3 10.5.4 says it should be
+		 * derived from processor's bus clock (IIUC which is the same
+		 * as TSC), however QEMU seems to be using nanosecond. In all
+		 * cases, the following should satisfy on all modern
+		 * processors.
+		 */
+		report((lvtt_counter == 1) && (tsc2 - tsc1 >= interval),
+		       "APIC LVT timer one shot");
+	}
 }
 
 static atomic_t broadcast_counter;
@@ -926,6 +947,8 @@ int main(void)
 {
 	bool is_x2apic = is_x2apic_enabled();
 	u32 spiv = apic_read(APIC_SPIV);
+	const apic_test_fn *test;
+	int array_size;
 	int i;
 
 	const apic_test_fn tests[] = {
@@ -959,6 +982,10 @@ int main(void)
 		test_aliased_xapic_physical_ipi,
 	};
 
+	const apic_test_fn td_guest_tests[] = {
+		test_apic_timer_one_shot,
+	};
+
 	assert_msg(is_apic_hw_enabled() && is_apic_sw_enabled(),
 		   "APIC should be fully enabled by startup code.");
 
@@ -967,8 +994,16 @@ int main(void)
 	mask_pic_interrupts();
 	sti();
 
-	for (i = 0; i < ARRAY_SIZE(tests); i++) {
-		tests[i]();
+	if (is_tdx_guest()) {
+		test = td_guest_tests;
+		array_size = ARRAY_SIZE(td_guest_tests);
+	} else {
+		test = tests;
+		array_size = ARRAY_SIZE(tests);
+	}
+
+	for (i = 0; i < array_size; i++) {
+		test[i]();
 
 		if (is_x2apic)
 			enable_x2apic();
